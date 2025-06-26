@@ -1,0 +1,14 @@
+{
+  "unity_version": "6.1",
+  "target_platforms": ["PC", "Mac", "iOS", "Android"],
+  "audio_settings": {
+    "sample_rate": 44100,
+    "buffer_size": 4096
+  },
+  "current_parameters": {
+    "pitch_range": "80-800 Hz",
+    "analysis_interval": "0.1s",
+    "correlation_threshold": 0.1,
+    "pitch_scale_multiplier": 1.5
+  }
+}

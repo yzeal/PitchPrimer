@@ -31,6 +31,11 @@ public class MicAnalysis : MonoBehaviour
     [SerializeField] private bool showAudioLevels = true;
     [SerializeField] private bool debugCorrelation = true; // New
     
+    // COPILOT CONTEXT: This is a Japanese pitch accent trainer
+    // Current implementation: Real-time pitch detection with cube visualization
+    // Working parameters: 80-800Hz range, 1.5f scale multiplier, 0.1f correlation threshold
+    // Next steps: Add audio clip comparison and scoring system
+
     // Audio components
     private AudioSource audioSource;
     private AudioClip microphoneClip;
