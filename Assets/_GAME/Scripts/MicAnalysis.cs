@@ -16,6 +16,8 @@ public class MicAnalysis : MonoBehaviour
     [SerializeField] private float minFrequency = 80f;   // Minimum human voice
     [SerializeField] private float maxFrequency = 800f;  // Maximum for pitch accent analysis
     [SerializeField] private float analysisInterval = 0.1f; // 100ms intervals
+    [SerializeField] private float correlationThreshold = 0.1f; // Reduced from 0.3f
+    [SerializeField] private float minAudioLevel = 0.001f; // Minimum audio level to analyze
     
     [Header("Visualization")]
     [SerializeField] private GameObject cubePrefab;
@@ -27,6 +29,7 @@ public class MicAnalysis : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogging = true;
     [SerializeField] private bool showAudioLevels = true;
+    [SerializeField] private bool debugCorrelation = true; // New
     
     // Audio components
     private AudioSource audioSource;
@@ -260,15 +263,30 @@ public class MicAnalysis : MonoBehaviour
         
         // Calculate audio level for debugging
         float audioLevel = 0f;
+        float maxSample = 0f;
         for (int i = 0; i < audioBuffer.Length; i++)
         {
-            audioLevel += Mathf.Abs(audioBuffer[i]);
+            float abs = Mathf.Abs(audioBuffer[i]);
+            audioLevel += abs;
+            if (abs > maxSample) maxSample = abs;
         }
         audioLevel /= audioBuffer.Length;
         
         if (showAudioLevels && analysisCallCount % 5 == 1)
         {
-            DebugLog($"Analysis #{analysisCallCount} - Audio Level: {audioLevel:F4}, Mic Position: {micPosition}");
+            DebugLog($"Analysis #{analysisCallCount} - Audio Level: {audioLevel:F4}, Max Sample: {maxSample:F4}, Mic Position: {micPosition}");
+        }
+        
+        // Skip analysis if audio level is too low
+        if (audioLevel < minAudioLevel)
+        {
+            if (analysisCallCount % 20 == 1)
+                DebugLog($"Audio level too low: {audioLevel:F4} < {minAudioLevel:F4}");
+            currentPitch = 0;
+            pitchHistory.Add(currentPitch);
+            if (pitchHistory.Count > 10) 
+                pitchHistory.RemoveAt(0);
+            return;
         }
         
         // Apply window function to reduce spectral leakage
@@ -280,9 +298,13 @@ public class MicAnalysis : MonoBehaviour
         // Analyze pitch using autocorrelation method
         currentPitch = AnalyzePitchAutocorrelation(audioBuffer);
         
-        if (currentPitch > 0 && analysisCallCount % 5 == 1)
+        if (currentPitch > 0)
         {
-            DebugLog($"Pitch detected: {currentPitch:F1} Hz");
+            DebugLog($"Pitch detected: {currentPitch:F1} Hz (Analysis #{analysisCallCount})");
+        }
+        else if (analysisCallCount % 10 == 1)
+        {
+            DebugLog($"No pitch detected in analysis #{analysisCallCount}");
         }
         
         // Add to history for smoothing
@@ -296,32 +318,71 @@ public class MicAnalysis : MonoBehaviour
         int minPeriod = Mathf.FloorToInt(sampleRate / maxFrequency);
         int maxPeriod = Mathf.FloorToInt(sampleRate / minFrequency);
         
+        if (debugCorrelation && analysisCallCount % 20 == 1)
+        {
+            DebugLog($"Autocorrelation - minPeriod: {minPeriod}, maxPeriod: {maxPeriod}, bufferLength: {buffer.Length}");
+        }
+        
         float bestPeriod = 0;
         float maxCorrelation = 0;
+        
+        // Calculate RMS for normalization
+        float rms = 0;
+        for (int i = 0; i < buffer.Length; i++)
+        {
+            rms += buffer[i] * buffer[i];
+        }
+        rms = Mathf.Sqrt(rms / buffer.Length);
+        
+        if (rms < 0.001f) // Too quiet
+        {
+            if (debugCorrelation && analysisCallCount % 20 == 1)
+                DebugLog($"RMS too low: {rms:F6}");
+            return 0;
+        }
         
         // Calculate autocorrelation for different periods
         for (int period = minPeriod; period <= maxPeriod && period < buffer.Length / 2; period++)
         {
             float correlation = 0;
-            for (int i = 0; i < buffer.Length - period; i++)
+            float energy1 = 0;
+            float energy2 = 0;
+            
+            int numSamples = buffer.Length - period;
+            
+            for (int i = 0; i < numSamples; i++)
             {
                 correlation += buffer[i] * buffer[i + period];
+                energy1 += buffer[i] * buffer[i];
+                energy2 += buffer[i + period] * buffer[i + period];
             }
             
-            // Normalize by the number of samples
-            correlation /= (buffer.Length - period);
-            
-            if (correlation > maxCorrelation)
+            // Normalized correlation coefficient
+            float normalizedCorrelation = 0;
+            if (energy1 > 0 && energy2 > 0)
             {
-                maxCorrelation = correlation;
+                normalizedCorrelation = correlation / Mathf.Sqrt(energy1 * energy2);
+            }
+            
+            if (normalizedCorrelation > maxCorrelation)
+            {
+                maxCorrelation = normalizedCorrelation;
                 bestPeriod = period;
             }
         }
         
-        // Convert period to frequency
-        if (bestPeriod > 0 && maxCorrelation > 0.3f) // Threshold to avoid noise
+        if (debugCorrelation && analysisCallCount % 20 == 1)
         {
-            return sampleRate / bestPeriod;
+            DebugLog($"Best correlation: {maxCorrelation:F4} at period {bestPeriod} (threshold: {correlationThreshold:F4})");
+        }
+        
+        // Convert period to frequency
+        if (bestPeriod > 0 && maxCorrelation > correlationThreshold)
+        {
+            float frequency = sampleRate / bestPeriod;
+            if (debugCorrelation)
+                DebugLog($"Frequency calculated: {frequency:F1} Hz");
+            return frequency;
         }
         
         return 0; // No pitch detected
@@ -332,7 +393,8 @@ public class MicAnalysis : MonoBehaviour
         // Smooth the pitch using moving average
         float smoothedPitch = pitchHistory.Count > 0 ? pitchHistory.Average() : 0;
         
-        DebugLog($"UpdateVisualization - smoothedPitch: {smoothedPitch:F1}, pitchHistory count: {pitchHistory.Count}");
+        if (analysisCallCount % 10 == 1)
+            DebugLog($"UpdateVisualization - smoothedPitch: {smoothedPitch:F1}, pitchHistory count: {pitchHistory.Count}");
         
         // Create new cube for this pitch measurement
         if (smoothedPitch > 0)
@@ -376,7 +438,7 @@ public class MicAnalysis : MonoBehaviour
         }
         else
         {
-            if (analysisCallCount % 10 == 1)
+            if (analysisCallCount % 20 == 1)
                 DebugLog("No cube created - smoothedPitch is 0");
         }
         
