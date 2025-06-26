@@ -22,9 +22,9 @@ public class MicAnalysis : MonoBehaviour
     [Header("Visualization")]
     [SerializeField] private GameObject cubePrefab;
     [SerializeField] private Transform cubeParent;
-    [SerializeField] private int maxCubes = 50;
-    [SerializeField] private float cubeSpacing = 1f;
-    [SerializeField] private float pitchScaleMultiplier = 0.01f;
+    [SerializeField] private int maxCubes = 30; // Weniger Würfel für bessere Performance
+    [SerializeField] private float cubeSpacing = 0.8f; // Engerer Abstand
+    [SerializeField] private float pitchScaleMultiplier = 1.5f; // Guter Startwert
     
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogging = true;
@@ -419,19 +419,25 @@ public class MicAnalysis : MonoBehaviour
             float xPosition = pitchCubes.Count * cubeSpacing;
             newCube.transform.localPosition = new Vector3(xPosition, 0, 0);
             
-            // Scale cube based on pitch (logarithmic scale works better for pitch)
+            // VERBESSERTE SKALIERUNG mit besseren Grenzen
             float pitchScale = Mathf.Log(smoothedPitch / minFrequency) * pitchScaleMultiplier;
-            pitchScale = Mathf.Clamp(pitchScale, 0.1f, 10f);
-            newCube.transform.localScale = new Vector3(1, pitchScale, 1);
+            pitchScale = Mathf.Clamp(pitchScale, 0.2f, 5f); // Bessere min/max Werte
+            newCube.transform.localScale = new Vector3(0.8f, pitchScale, 0.8f); // Schmalere Würfel
             
             DebugLog($"Created cube #{cubesCreated} - Pitch: {smoothedPitch:F1}Hz, Scale: {pitchScale:F2}, Position: ({xPosition}, 0, 0)");
             
-            // Color coding for pitch ranges (optional)
+            // VERBESSERTE FARBKODIERUNG mit mehr Kontrast
             Renderer renderer = newCube.GetComponent<Renderer>();
             if (renderer != null)
             {
                 float normalizedPitch = (smoothedPitch - minFrequency) / (maxFrequency - minFrequency);
-                renderer.material.color = Color.HSVToRGB(normalizedPitch * 0.8f, 1f, 1f);
+                // Erweiterte Farbpalette für bessere Unterscheidung
+                Color cubeColor = Color.HSVToRGB(normalizedPitch * 0.8f, 0.8f, 1f);
+                renderer.material.color = cubeColor;
+                
+                // Debug: Zeige Farbwerte
+                if (cubesCreated % 5 == 1)
+                    DebugLog($"Cube color - Pitch: {smoothedPitch:F1}Hz, Normalized: {normalizedPitch:F2}, HSV: {normalizedPitch * 0.8f * 360:F0}°");
             }
             
             pitchCubes.Enqueue(newCube);
