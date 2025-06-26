@@ -2054,7 +2054,7 @@ MonoBehaviour:
   cubeParent: {fileID: 1675095127}
   maxCubes: 30
   cubeSpacing: 0.8
-  pitchScaleMultiplier: 2
+  pitchScaleMultiplier: 4
   enableDebugLogging: 1
   showAudioLevels: 1
   debugCorrelation: 1

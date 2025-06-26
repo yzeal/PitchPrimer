@@ -421,7 +421,7 @@ public class MicAnalysis : MonoBehaviour
             
             // VERBESSERTE SKALIERUNG mit besseren Grenzen
             float pitchScale = Mathf.Log(smoothedPitch / minFrequency) * pitchScaleMultiplier;
-            pitchScale = Mathf.Clamp(pitchScale, 0.2f, 5f); // Bessere min/max Werte
+            pitchScale = Mathf.Clamp(pitchScale, 0.2f, 10f); // Bessere min/max Werte
             newCube.transform.localScale = new Vector3(0.8f, pitchScale, 0.8f); // Schmalere Würfel
             
             DebugLog($"Created cube #{cubesCreated} - Pitch: {smoothedPitch:F1}Hz, Scale: {pitchScale:F2}, Position: ({xPosition}, 0, 0)");
