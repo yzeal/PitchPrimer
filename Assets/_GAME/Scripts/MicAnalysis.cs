@@ -19,6 +19,14 @@ public class MicAnalysis : MonoBehaviour
     [SerializeField] private float correlationThreshold = 0.1f; // Reduced from 0.3f
     [SerializeField] private float minAudioLevel = 0.001f; // Minimum audio level to analyze
     
+    [Header("Noise Gate Settings")]
+    [SerializeField] private bool enableNoiseGate = true;
+    [SerializeField] private float noiseGateMultiplier = 3.0f; // Gate öffnet bei 3x Ambient Level
+    [SerializeField] private float ambientCalibrationTime = 3.0f; // Sekunden für Ambient-Messung
+    [SerializeField] private float gateAttackTime = 0.05f; // Schnelles Öffnen (50ms)
+    [SerializeField] private float gateReleaseTime = 0.2f; // Langsameres Schließen (200ms)
+    [SerializeField] private float ambientUpdateRate = 0.5f; // Update alle 500ms
+    
     [Header("Visualization")]
     [SerializeField] private GameObject cubePrefab;
     [SerializeField] private Transform cubeParent;
@@ -30,6 +38,7 @@ public class MicAnalysis : MonoBehaviour
     [SerializeField] private bool enableDebugLogging = true;
     [SerializeField] private bool showAudioLevels = true;
     [SerializeField] private bool debugCorrelation = true; // New
+    [SerializeField] private bool debugNoiseGate = true; // New
     
     // COPILOT CONTEXT: This is a Japanese pitch accent trainer
     // Current implementation: Real-time pitch detection with cube visualization
@@ -47,6 +56,16 @@ public class MicAnalysis : MonoBehaviour
     private float lastAnalysisTime;
     private float currentPitch;
     private bool isAnalyzing = false;
+    
+    // Noise Gate variables
+    private float ambientNoiseLevel = 0f;
+    private bool isCalibrating = true;
+    private float calibrationStartTime;
+    private float lastAmbientUpdate;
+    private float currentGateLevel = 0f;
+    private float targetGateLevel = 0f;
+    private List<float> ambientSamples;
+    private bool gateIsOpen = false;
     
     // Visualization
     private Queue<GameObject> pitchCubes;
@@ -88,6 +107,7 @@ public class MicAnalysis : MonoBehaviour
         pitchCubes = new Queue<GameObject>();
         audioBuffer = new float[bufferLength];
         windowBuffer = new float[bufferLength];
+        ambientSamples = new List<float>();
         
         // Apply Hann window for better frequency analysis
         for (int i = 0; i < bufferLength; i++)
@@ -119,7 +139,17 @@ public class MicAnalysis : MonoBehaviour
         if (InitializeMicrophone())
         {
             isAnalyzing = true;
+            // Reset noise gate calibration
+            isCalibrating = true;
+            calibrationStartTime = Time.time;
+            ambientNoiseLevel = 0f;
+            ambientSamples.Clear();
+            
             DebugLog($"Started microphone analysis with: {deviceName} - isAnalyzing: {isAnalyzing}");
+            if (enableNoiseGate)
+            {
+                DebugLog($"Noise gate calibration started - will calibrate for {ambientCalibrationTime}s");
+            }
         }
         else
         {
@@ -267,26 +297,26 @@ public class MicAnalysis : MonoBehaviour
         microphoneClip.GetData(audioBuffer, startPosition);
         
         // Calculate audio level for debugging
-        float audioLevel = 0f;
+        float audioLevel = CalculateAudioLevel(audioBuffer);
         float maxSample = 0f;
         for (int i = 0; i < audioBuffer.Length; i++)
         {
             float abs = Mathf.Abs(audioBuffer[i]);
-            audioLevel += abs;
             if (abs > maxSample) maxSample = abs;
         }
-        audioLevel /= audioBuffer.Length;
         
         if (showAudioLevels && analysisCallCount % 5 == 1)
         {
             DebugLog($"Analysis #{analysisCallCount} - Audio Level: {audioLevel:F4}, Max Sample: {maxSample:F4}, Mic Position: {micPosition}");
         }
         
-        // Skip analysis if audio level is too low
-        if (audioLevel < minAudioLevel)
+            // Update noise gate
+        bool shouldAnalyze = UpdateNoiseGate(audioLevel);
+        
+        if (!shouldAnalyze)
         {
             if (analysisCallCount % 20 == 1)
-                DebugLog($"Audio level too low: {audioLevel:F4} < {minAudioLevel:F4}");
+                DebugLog($"Audio blocked by noise gate - Level: {audioLevel:F4}, Gate: {currentGateLevel:F4}");
             currentPitch = 0;
             pitchHistory.Add(currentPitch);
             if (pitchHistory.Count > 10) 
@@ -316,6 +346,89 @@ public class MicAnalysis : MonoBehaviour
         pitchHistory.Add(currentPitch);
         if (pitchHistory.Count > 10) // Keep last 10 measurements for smoothing
             pitchHistory.RemoveAt(0);
+    }
+    
+    private float CalculateAudioLevel(float[] buffer)
+    {
+        float level = 0f;
+        for (int i = 0; i < buffer.Length; i++)
+        {
+            level += Mathf.Abs(buffer[i]);
+        }
+        return level / buffer.Length;
+    }
+    
+    private bool UpdateNoiseGate(float currentAudioLevel)
+    {
+        if (!enableNoiseGate)
+        {
+            return currentAudioLevel >= minAudioLevel; // Fallback to simple threshold
+        }
+        
+        // Calibration phase - learn ambient noise level
+        if (isCalibrating)
+        {
+            ambientSamples.Add(currentAudioLevel);
+            
+            if (Time.time - calibrationStartTime >= ambientCalibrationTime)
+            {
+                // Calculate ambient noise as average of lower 70% of samples
+                var sortedSamples = ambientSamples.OrderBy(x => x).ToList();
+                int sampleCount = Mathf.FloorToInt(sortedSamples.Count * 0.7f);
+                ambientNoiseLevel = sortedSamples.Take(sampleCount).Average();
+                
+                isCalibrating = false;
+                targetGateLevel = ambientNoiseLevel * noiseGateMultiplier;
+                currentGateLevel = targetGateLevel;
+                
+                DebugLog($"Noise gate calibrated - Ambient: {ambientNoiseLevel:F4}, Gate: {targetGateLevel:F4}");
+            }
+            return false; // Don't analyze during calibration
+        }
+        
+        // Update ambient noise level periodically
+        if (Time.time - lastAmbientUpdate >= ambientUpdateRate)
+        {
+            // Only update if gate is closed (to avoid including speech)
+            if (!gateIsOpen && currentAudioLevel < targetGateLevel)
+            {
+                // Slowly adapt ambient level
+                ambientNoiseLevel = Mathf.Lerp(ambientNoiseLevel, currentAudioLevel, 0.1f);
+                targetGateLevel = ambientNoiseLevel * noiseGateMultiplier;
+            }
+            lastAmbientUpdate = Time.time;
+        }
+        
+        // Gate control with attack/release
+        if (currentAudioLevel > targetGateLevel)
+        {
+            // Attack - fast opening
+            currentGateLevel = Mathf.Lerp(currentGateLevel, currentAudioLevel, 
+                Time.deltaTime / gateAttackTime);
+            gateIsOpen = true;
+        }
+        else
+        {
+            // Release - slow closing
+            currentGateLevel = Mathf.Lerp(currentGateLevel, targetGateLevel, 
+                Time.deltaTime / gateReleaseTime);
+            
+            if (currentGateLevel <= targetGateLevel * 1.1f) // Small hysteresis
+            {
+                gateIsOpen = false;
+            }
+        }
+        
+        bool shouldPass = currentAudioLevel >= currentGateLevel;
+        
+        if (debugNoiseGate && analysisCallCount % 20 == 1)
+        {
+            DebugLog($"NoiseGate - Audio: {currentAudioLevel:F4}, Gate: {currentGateLevel:F4}, " +
+                    $"Target: {targetGateLevel:F4}, Ambient: {ambientNoiseLevel:F4}, " +
+                    $"Open: {gateIsOpen}, Pass: {shouldPass}");
+        }
+        
+        return shouldPass;
     }
     
     private float AnalyzePitchAutocorrelation(float[] buffer)
@@ -426,7 +539,7 @@ public class MicAnalysis : MonoBehaviour
             
             // VERBESSERTE SKALIERUNG mit besseren Grenzen
             float pitchScale = Mathf.Log(smoothedPitch / minFrequency) * pitchScaleMultiplier;
-            pitchScale = Mathf.Clamp(pitchScale, 0.2f, 10f); // Bessere min/max Werte
+            pitchScale = Mathf.Clamp(pitchScale, 0.2f, 20f); // Bessere min/max Werte
             newCube.transform.localScale = new Vector3(0.8f, pitchScale, 0.8f); // Schmalere Würfel
             
             DebugLog($"Created cube #{cubesCreated} - Pitch: {smoothedPitch:F1}Hz, Scale: {pitchScale:F2}, Position: ({xPosition}, 0, 0)");
@@ -488,4 +601,10 @@ public class MicAnalysis : MonoBehaviour
     public float GetSmoothedPitch() => pitchHistory.Count > 0 ? pitchHistory.Average() : 0;
     public List<float> GetPitchHistory() => new List<float>(pitchHistory);
     public bool IsAnalyzing() => isAnalyzing;
+    
+    // Public methods for noise gate info
+    public float GetAmbientNoiseLevel() => ambientNoiseLevel;
+    public float GetCurrentGateLevel() => currentGateLevel;
+    public bool IsGateOpen() => gateIsOpen;
+    public bool IsCalibrating() => isCalibrating;
 }
