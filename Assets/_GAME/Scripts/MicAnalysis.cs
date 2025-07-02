@@ -514,66 +514,75 @@ public class MicAnalysis : MonoBehaviour
         if (analysisCallCount % 10 == 1)
             DebugLog($"UpdateVisualization - smoothedPitch: {smoothedPitch:F1}, pitchHistory count: {pitchHistory.Count}");
         
-        // Create new cube for this pitch measurement
+        // WICHTIGE ÄNDERUNG: Erstelle IMMER einen Würfel für konstante Synchronisation
+        if (cubePrefab == null)
+        {
+            DebugLog("ERROR: cubePrefab is null in UpdateVisualization!");
+            return;
+        }
+        
+        if (cubeParent == null)
+        {
+            DebugLog("ERROR: cubeParent is null in UpdateVisualization!");
+            return;
+        }
+        
+        GameObject newCube = Instantiate(cubePrefab, cubeParent);
+        newCube.SetActive(true);
+        cubesCreated++;
+        
+        // Position cube - konstanter Abstand für gleichmäßige Bewegung
+        float xPosition = pitchCubes.Count * cubeSpacing;
+        newCube.transform.localPosition = new Vector3(xPosition, 0, 0);
+        
+        // Skalierung basierend auf Pitch - auch bei Stille (Höhe = 0)
+        float pitchScale;
+        Color cubeColor;
+        
         if (smoothedPitch > 0)
         {
-            if (cubePrefab == null)
-            {
-                DebugLog("ERROR: cubePrefab is null in UpdateVisualization!");
-                return;
-            }
+            // Pitch erkannt - normale Skalierung
+            pitchScale = Mathf.Log(smoothedPitch / minFrequency) * pitchScaleMultiplier;
+            pitchScale = Mathf.Clamp(pitchScale, 0.2f, 20f);
             
-            if (cubeParent == null)
-            {
-                DebugLog("ERROR: cubeParent is null in UpdateVisualization!");
-                return;
-            }
+            // Normale Farbkodierung für Pitch
+            float normalizedPitch = (smoothedPitch - minFrequency) / (maxFrequency - minFrequency);
+            cubeColor = Color.HSVToRGB(normalizedPitch * 0.8f, 0.8f, 1f);
             
-            GameObject newCube = Instantiate(cubePrefab, cubeParent);
-            newCube.SetActive(true);
-            cubesCreated++;
-            
-            // Position cube
-            float xPosition = pitchCubes.Count * cubeSpacing;
-            newCube.transform.localPosition = new Vector3(xPosition, 0, 0);
-            
-            // VERBESSERTE SKALIERUNG mit besseren Grenzen
-            float pitchScale = Mathf.Log(smoothedPitch / minFrequency) * pitchScaleMultiplier;
-            pitchScale = Mathf.Clamp(pitchScale, 0.2f, 20f); // Bessere min/max Werte
-            newCube.transform.localScale = new Vector3(0.8f, pitchScale, 0.8f); // Schmalere Würfel
-            
-            DebugLog($"Created cube #{cubesCreated} - Pitch: {smoothedPitch:F1}Hz, Scale: {pitchScale:F2}, Position: ({xPosition}, 0, 0)");
-            
-            // VERBESSERTE FARBKODIERUNG mit mehr Kontrast
-            Renderer renderer = newCube.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                float normalizedPitch = (smoothedPitch - minFrequency) / (maxFrequency - minFrequency);
-                // Erweiterte Farbpalette für bessere Unterscheidung
-                Color cubeColor = Color.HSVToRGB(normalizedPitch * 0.8f, 0.8f, 1f);
-                renderer.material.color = cubeColor;
-                
-                // Debug: Zeige Farbwerte
-                if (cubesCreated % 5 == 1)
-                    DebugLog($"Cube color - Pitch: {smoothedPitch:F1}Hz, Normalized: {normalizedPitch:F2}, HSV: {normalizedPitch * 0.8f * 360:F0}°");
-            }
-            
-            pitchCubes.Enqueue(newCube);
+            DebugLog($"Created pitch cube #{cubesCreated} - Pitch: {smoothedPitch:F1}Hz, Scale: {pitchScale:F2}");
         }
         else
         {
-            if (analysisCallCount % 20 == 1)
-                DebugLog("No cube created - smoothedPitch is 0");
+            // Stille - minimale Höhe für Synchronisation
+            pitchScale = 0.05f; // Sehr flacher Würfel für stille Abschnitte
+            
+            // Graue Farbe für stille Abschnitte
+            cubeColor = new Color(0f, 0f, 0f, 0f); // schwarze Farbe
+
+            if (cubesCreated % 10 == 1) // Weniger Debug-Spam
+                DebugLog($"Created silence cube #{cubesCreated} - maintaining sync");
         }
         
-        // Remove old cubes
+        // Anwenden der Skalierung
+        newCube.transform.localScale = new Vector3(0.8f, pitchScale, 0.8f);
+        
+        // Anwenden der Farbe
+        Renderer renderer = newCube.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material.color = cubeColor;
+        }
+        
+        pitchCubes.Enqueue(newCube);
+        
+        // Remove old cubes - konstante Anzahl für gleichmäßige Bewegung
         while (pitchCubes.Count > maxCubes)
         {
             GameObject oldCube = pitchCubes.Dequeue();
             DestroyImmediate(oldCube);
         }
         
-        // Shift remaining cubes
+        // Shift remaining cubes - konstante Bewegungsgeschwindigkeit
         int index = 0;
         foreach (GameObject cube in pitchCubes)
         {
