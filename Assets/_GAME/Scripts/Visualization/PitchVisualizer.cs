@@ -256,6 +256,8 @@ public class PitchVisualizer : MonoBehaviour
     
     public void ClearAll()
     {
+        if(activeCubes == null) return;
+
         while (activeCubes.Count > 0)
         {
             GameObject cube = activeCubes.Dequeue();

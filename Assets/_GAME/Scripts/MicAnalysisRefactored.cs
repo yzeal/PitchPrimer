@@ -17,8 +17,15 @@ public class MicAnalysisRefactored : MonoBehaviour
     [SerializeField] private string deviceName;
     [SerializeField] private float minAudioLevel = 0.001f;
     
+    [Header("Noise Gate Settings")]
+    [SerializeField] private bool enableNoiseGate = true;
+    [SerializeField] private float noiseGateMultiplier = 3.0f; // Gate öffnet bei 3x Ambient Level
+    [SerializeField] private float ambientCalibrationTime = 2.0f; // Sekunden für Ambient-Messung
+    [SerializeField] private float ambientSamplePercentage = 0.7f; // Verwende untere 70% für Ambient-Berechnung
+    
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogging = false;
+    [SerializeField] private bool debugNoiseGate = false; // Separate noise gate debugging
     
     // Events für lose Kopplung
     public System.Action<PitchDataPoint> OnPitchDetected;
@@ -29,12 +36,11 @@ public class MicAnalysisRefactored : MonoBehaviour
     private float lastAnalysisTime;
     private bool isAnalyzing = false;
     
-    // Noise Gate (simplified version)
+    // Noise Gate variables
     private float ambientNoiseLevel = 0f;
     private List<float> calibrationSamples;
     private bool isCalibrating = true;
     private float calibrationStartTime;
-    private float calibrationDuration = 2f;
     
     void Start()
     {
@@ -91,12 +97,19 @@ public class MicAnalysisRefactored : MonoBehaviour
             isAnalyzing = true;
             
             // Reset calibration
-            isCalibrating = true;
-            calibrationStartTime = Time.time;
-            calibrationSamples.Clear();
-            ambientNoiseLevel = 0f;
-            
-            DebugLog($"Analysis started successfully. Calibrating for {calibrationDuration}s...");
+            if (enableNoiseGate)
+            {
+                isCalibrating = true;
+                calibrationStartTime = Time.time;
+                calibrationSamples.Clear();
+                ambientNoiseLevel = 0f;
+                DebugLog($"Analysis started with noise gate. Calibrating for {ambientCalibrationTime}s...");
+            }
+            else
+            {
+                isCalibrating = false;
+                DebugLog("Analysis started without noise gate");
+            }
         }
         else
         {
@@ -197,28 +210,13 @@ public class MicAnalysisRefactored : MonoBehaviour
         float timestamp = Time.time;
         PitchDataPoint pitchData = PitchAnalyzer.AnalyzeAudioBuffer(audioBuffer, timestamp, analysisSettings);
         
-        // Noise Gate während Kalibrierung
-        if (isCalibrating)
-        {
-            calibrationSamples.Add(pitchData.audioLevel);
-            
-            if (Time.time - calibrationStartTime >= calibrationDuration)
-            {
-                // Berechne Ambient-Niveau als Durchschnitt der unteren 70%
-                var sortedSamples = calibrationSamples.OrderBy(x => x).ToList();
-                int sampleCount = Mathf.FloorToInt(sortedSamples.Count * 0.7f);
-                ambientNoiseLevel = sortedSamples.Take(sampleCount).Average();
-                
-                isCalibrating = false;
-                DebugLog($"Calibration complete. Ambient noise: {ambientNoiseLevel:F4}");
-            }
-            return; // Keine Analyse während Kalibrierung
-        }
+        // Apply noise gate if enabled
+        bool shouldPass = UpdateNoiseGate(pitchData.audioLevel);
         
-        // Noise Gate Check
-        float noiseGateThreshold = ambientNoiseLevel * 3f; // 3x Ambient als Threshold
-        if (pitchData.audioLevel < Mathf.Max(minAudioLevel, noiseGateThreshold))
+        if (!shouldPass)
         {
+            if (debugNoiseGate && enableDebugLogging)
+                DebugLog($"Audio blocked by noise gate - Level: {pitchData.audioLevel:F4}");
             pitchData = new PitchDataPoint(timestamp, 0f, 0f, pitchData.audioLevel);
         }
         
@@ -229,6 +227,61 @@ public class MicAnalysisRefactored : MonoBehaviour
         if (enableDebugLogging && pitchData.HasPitch)
         {
             DebugLog($"Pitch detected: {pitchData.frequency:F1}Hz");
+        }
+    }
+    
+    private bool UpdateNoiseGate(float currentAudioLevel)
+    {
+        if (!enableNoiseGate)
+        {
+            return currentAudioLevel >= minAudioLevel; // Fallback to simple threshold
+        }
+        
+        // Calibration phase - learn ambient noise level
+        if (isCalibrating)
+        {
+            calibrationSamples.Add(currentAudioLevel);
+            
+            if (Time.time - calibrationStartTime >= ambientCalibrationTime)
+            {
+                // Calculate ambient noise as average of lower X% of samples
+                var sortedSamples = calibrationSamples.OrderBy(x => x).ToList();
+                int sampleCount = Mathf.FloorToInt(sortedSamples.Count * ambientSamplePercentage);
+                ambientNoiseLevel = sortedSamples.Take(sampleCount).Average();
+                
+                isCalibrating = false;
+                DebugLog($"Noise gate calibrated - Ambient: {ambientNoiseLevel:F4}, Multiplier: {noiseGateMultiplier}x");
+            }
+            return false; // Don't analyze during calibration
+        }
+        
+        // Apply noise gate
+        float noiseGateThreshold = ambientNoiseLevel * noiseGateMultiplier;
+        bool shouldPass = currentAudioLevel >= Mathf.Max(minAudioLevel, noiseGateThreshold);
+        
+        if (debugNoiseGate && enableDebugLogging && Time.frameCount % 60 == 0) // Every second at 60fps
+        {
+            DebugLog($"NoiseGate - Audio: {currentAudioLevel:F4}, Gate: {noiseGateThreshold:F4}, " +
+                    $"Ambient: {ambientNoiseLevel:F4}, Pass: {shouldPass}");
+        }
+        
+        return shouldPass;
+    }
+    
+    // NEW: Manual recalibration method
+    public void RecalibrateNoiseGate()
+    {
+        if (enableNoiseGate && isAnalyzing)
+        {
+            isCalibrating = true;
+            calibrationStartTime = Time.time;
+            calibrationSamples.Clear();
+            ambientNoiseLevel = 0f;
+            DebugLog($"Manual recalibration started - will take {ambientCalibrationTime}s");
+        }
+        else
+        {
+            DebugLog("Cannot recalibrate - noise gate disabled or not analyzing");
         }
     }
     
@@ -250,4 +303,6 @@ public class MicAnalysisRefactored : MonoBehaviour
     public bool IsCalibrating => isCalibrating;
     public float AmbientNoiseLevel => ambientNoiseLevel;
     public string CurrentDevice => deviceName;
+    public bool NoiseGateEnabled => enableNoiseGate;
+    public float NoiseGateThreshold => enableNoiseGate ? ambientNoiseLevel * noiseGateMultiplier : minAudioLevel;
 }
