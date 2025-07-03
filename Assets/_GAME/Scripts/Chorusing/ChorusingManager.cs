@@ -4,20 +4,18 @@ using System.Collections.Generic;
 // COPILOT CONTEXT: Main controller for chorusing exercises
 // Coordinates native recording playback with user microphone input
 // Manages dual-track visualization and synchronization
-// UPDATED: Uses MicAnalysisRefactored with event-based integration
+// UPDATED: References visualizers directly to avoid duplicate settings
 
 public class ChorusingManager : MonoBehaviour
 {
     [Header("Components")]
-    [SerializeField] private MicAnalysisRefactored micAnalysis; // CHANGED: MicAnalysisRefactored
+    [SerializeField] private MicAnalysisRefactored micAnalysis;
     [SerializeField] private PitchVisualizer userVisualizer;
     [SerializeField] private PitchVisualizer nativeVisualizer;
     [SerializeField] private AudioSource nativeAudioSource;
 
-    [Header("Settings")]
+    [Header("Analysis Settings")]
     [SerializeField] private PitchAnalysisSettings analysisSettings;
-    [SerializeField] private VisualizationSettings userVisualizationSettings;
-    [SerializeField] private VisualizationSettings nativeVisualizationSettings;
 
     [Header("Native Recording")]
     [SerializeField] private AudioClip nativeClip;
@@ -42,7 +40,7 @@ public class ChorusingManager : MonoBehaviour
 
     void Update()
     {
-        if (isChorusingActive && nativeAudioSource.isPlaying)
+        if (isChorusingActive && nativeAudioSource != null && nativeAudioSource.isPlaying)
         {
             UpdateNativeVisualization();
         }
@@ -63,11 +61,14 @@ public class ChorusingManager : MonoBehaviour
         }
 
         // Starte native Aufnahme
-        nativeAudioSource.clip = nativeClip;
-        nativeAudioSource.loop = autoLoop;
-        nativeAudioSource.Play();
+        if (nativeAudioSource != null)
+        {
+            nativeAudioSource.clip = nativeClip;
+            nativeAudioSource.loop = autoLoop;
+            nativeAudioSource.Play();
+        }
 
-        // Pre-rendere native Visualisierung
+        // Pre-rendere native Visualisierung (uses its own settings)
         if (nativeVisualizer != null)
         {
             nativeVisualizer.PreRenderNativeTrack(nativePitchData);
@@ -93,6 +94,7 @@ public class ChorusingManager : MonoBehaviour
             nativeAudioSource.Stop();
         }
 
+        // Clear visualizations (each uses its own settings)
         if (userVisualizer != null)
         {
             userVisualizer.ClearAll();
@@ -120,20 +122,8 @@ public class ChorusingManager : MonoBehaviour
             Debug.LogError("MicAnalysisRefactored component not assigned!");
         }
 
-        // Setup User Visualizer
-        if (userVisualizer != null)
-        {
-            userVisualizer.Initialize(userVisualizationSettings);
-            DebugLog("User visualizer initialized");
-        }
-
-        // Native Visualizer mit Offset (zweite Reihe)
-        if (nativeVisualizer != null)
-        {
-            nativeVisualizationSettings.trackOffset = new Vector3(0, 0, 2f); // Dahinter
-            nativeVisualizer.Initialize(nativeVisualizationSettings);
-            DebugLog("Native visualizer initialized with offset");
-        }
+        // REMOVED: Manual initialization - visualizers handle their own settings!
+        // The PitchVisualizers will use their own VisualizationSettings from their Inspector
 
         // Setup AudioSource
         if (nativeAudioSource == null)
@@ -141,6 +131,8 @@ public class ChorusingManager : MonoBehaviour
             nativeAudioSource = gameObject.AddComponent<AudioSource>();
         }
         nativeAudioSource.playOnAwake = false;
+        
+        DebugLog("ChorusingManager components initialized");
     }
 
     private void PreAnalyzeNativeRecording()
@@ -153,7 +145,7 @@ public class ChorusingManager : MonoBehaviour
 
         DebugLog($"Pre-analyzing native recording: {nativeClip.name}");
 
-        // Verwende den geteilten PitchAnalyzer
+        // Use shared PitchAnalyzer with our analysis settings
         nativePitchData = PitchAnalyzer.PreAnalyzeAudioClip(nativeClip, analysisSettings, analysisInterval);
 
         // Optional: Smoothing
@@ -164,7 +156,7 @@ public class ChorusingManager : MonoBehaviour
 
         DebugLog($"Native recording analyzed: {nativePitchData.Count} data points");
 
-        // Debug: Zeige Statistiken
+        // Debug: Show statistics
         if (enableDebugLogging)
         {
             var stats = PitchAnalyzer.CalculateStatistics(nativePitchData);
@@ -174,18 +166,19 @@ public class ChorusingManager : MonoBehaviour
 
     private void UpdateNativeVisualization()
     {
-        if (nativeVisualizer != null && nativePitchData != null)
+        if (nativeVisualizer != null && nativePitchData != null && nativeAudioSource != null)
         {
             float playbackTime = nativeAudioSource.time;
             nativeVisualizer.UpdateNativeTrackPlayback(playbackTime, nativePitchData);
         }
     }
 
-    // UPDATED: Event Handler für MicAnalysisRefactored
+    // Event Handler für MicAnalysisRefactored
     private void OnUserPitchDetected(PitchDataPoint pitchData)
     {
         if (isChorusingActive && userVisualizer != null)
         {
+            // User visualizer uses its own settings for display
             userVisualizer.AddRealtimePitchData(pitchData);
             
             // Debug output für interessante Events
@@ -203,6 +196,18 @@ public class ChorusingManager : MonoBehaviour
         PreAnalyzeNativeRecording();
     }
 
+    // ADDED: Helper methods to access visualizer settings (read-only)
+    public VisualizationSettings GetUserVisualizationSettings()
+    {
+        return userVisualizer != null ? userVisualizer.GetSettings() : null;
+    }
+
+    public VisualizationSettings GetNativeVisualizationSettings()
+    {
+        return nativeVisualizer != null ? nativeVisualizer.GetSettings() : null;
+    }
+
+    // Public getters
     public bool IsChorusingActive => isChorusingActive;
     public float GetNativePlaybackTime() => nativeAudioSource != null ? nativeAudioSource.time : 0f;
     public List<PitchDataPoint> GetNativePitchData() => nativePitchData;

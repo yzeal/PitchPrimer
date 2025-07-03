@@ -269,4 +269,17 @@ public class PitchVisualizer : MonoBehaviour
     {
         ClearAll();
     }
+
+    // ADDED: Getter for settings (read-only access)
+    public VisualizationSettings GetSettings()
+    {
+        return settings;
+    }
+
+    // ADDED: Method to update settings at runtime if needed
+    public void UpdateSettings(VisualizationSettings newSettings)
+    {
+        settings = newSettings;
+        ValidateSettings(); // Re-validate after update
+    }
 }
