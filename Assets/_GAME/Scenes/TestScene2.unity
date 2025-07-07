@@ -710,7 +710,7 @@ MonoBehaviour:
     minFrequency: 80
     maxFrequency: 800
     silenceCubeHeight: 0.05
-    silenceColor: {r: 0.18238991, g: 0.18181637, b: 0.18181637, a: 1}
+    silenceColor: {r: 0.3, g: 0.3, b: 0.3, a: 0.7}
     useHSVColorMapping: 1
     saturation: 0.8
     brightness: 1
@@ -1351,7 +1351,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &897609203
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1374,7 +1374,7 @@ MonoBehaviour:
     cubePrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
     cubeParent: {fileID: 453507923}
     cubeSpacing: 0.8
-    cubeScale: {x: 0.8, y: 1, z: 0.8}
+    cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
     pitchScaleMultiplier: 4
@@ -1801,7 +1801,7 @@ MonoBehaviour:
   nativeClip: {fileID: 8300000, guid: 9dd45b490be55a24ebb78efb7948a619, type: 3}
   analysisInterval: 0.1
   autoLoop: 1
-  enableDebugLogging: 1
+  enableDebugLogging: 0
 --- !u!1 &1285873726
 GameObject:
   m_ObjectHideFlags: 0
@@ -2637,7 +2637,7 @@ MonoBehaviour:
   debugButton: {fileID: 630669283}
   statusText: {fileID: 417221033}
   micAnalysis: {fileID: 1512065942}
-  enableDebugLogging: 1
+  enableDebugLogging: 0
   showRuntimeInfo: 0
 --- !u!114 &1512065942
 MonoBehaviour:
@@ -2667,7 +2667,7 @@ MonoBehaviour:
   noiseGateMultiplier: 1
   ambientCalibrationTime: 2
   ambientSamplePercentage: 0.7
-  enableDebugLogging: 1
+  enableDebugLogging: 0
   debugNoiseGate: 0
 --- !u!82 &1512065943
 AudioSource:

@@ -13,7 +13,7 @@ public class VisualizationSettings
     public GameObject cubePrefab;
     public Transform cubeParent;
     public float cubeSpacing = 0.8f;
-    public Vector3 cubeScale = new Vector3(0.8f, 1f, 0.8f);
+    public Vector3 cubeScale = new Vector3(0.8f, 1f, 0.1f);
     
     [Header("Layout")]
     public int maxCubes = 30;
@@ -55,13 +55,15 @@ public class PitchVisualizer : MonoBehaviour
     
     // FIXED: Add Awake method to ensure initialization
     void Awake()
-    {
+    { 
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Awake() - cubeScale: {settings.cubeScale}");
         EnsureInitialization();
     }
     
     // FIXED: Add Start method as fallback
     void Start()
     {
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Start() - cubeScale: {settings.cubeScale}");
         EnsureInitialization();
     }
     
@@ -79,16 +81,20 @@ public class PitchVisualizer : MonoBehaviour
         }
         
         ValidateSettings();
-        
-        Debug.Log($"[PitchVisualizer] {gameObject.name} initialized - activeCubes: {activeCubes != null}, preRenderedCubes: {preRenderedCubes != null}");
+
+        // ADDED: Debug cube scale at initialization
+        if (!isNativeTrack) Debug.Log($"[PitchVisualizer] {gameObject.name} initialized - cubeScale: {settings.cubeScale}");
     }
     
     public void Initialize(VisualizationSettings visualSettings)
     {
+        // ADDED: Debug what settings are being passed in
+        if (!isNativeTrack) Debug.Log($"[PitchVisualizer] {gameObject.name} Initialize() called - OLD cubeScale: {settings.cubeScale}, NEW cubeScale: {visualSettings.cubeScale}");
+        
         settings = visualSettings;
         EnsureInitialization(); // Use safe initialization
-        
-        Debug.Log($"[PitchVisualizer] {gameObject.name} manually initialized with settings");
+
+        if (!isNativeTrack) Debug.Log($"[PitchVisualizer] {gameObject.name} manually initialized with settings - FINAL cubeScale: {settings.cubeScale}");
     }
     
     // NEW: Set track type for different behavior
@@ -101,8 +107,12 @@ public class PitchVisualizer : MonoBehaviour
     // NEW: Set analysis interval for synchronized scrolling
     public void SetAnalysisInterval(float interval)
     {
+        // ADDED: Debug if this affects cube scale
+        if (!isNativeTrack) Debug.Log($"[PitchVisualizer] {gameObject.name} SetAnalysisInterval - BEFORE cubeScale: {settings.cubeScale}");
+        
         settings.analysisInterval = interval;
-        Debug.Log($"[PitchVisualizer] {gameObject.name} analysis interval set to: {interval}");
+
+        if (!isNativeTrack) Debug.Log($"[PitchVisualizer] {gameObject.name} analysis interval set to: {interval} - AFTER cubeScale: {settings.cubeScale}");
     }
     
     /// <summary>
@@ -111,6 +121,12 @@ public class PitchVisualizer : MonoBehaviour
     public void AddRealtimePitchData(PitchDataPoint pitchData)
     {
         EnsureInitialization(); // Safety check
+        
+        // ADDED: Debug cube scale during first user cube creation
+        if (activeCubes.Count == 0)
+        {
+            if (!isNativeTrack) Debug.Log($"[PitchVisualizer] {gameObject.name} AddRealtimePitchData - First cube creation, cubeScale: {settings.cubeScale}");
+        }
         
         GameObject cube = CreateCube(pitchData, false);
         if (cube != null)
@@ -346,6 +362,14 @@ public class PitchVisualizer : MonoBehaviour
         float pitchScale = CalculatePitchScale(pitchData);
         Vector3 scale = settings.cubeScale;
         scale.y = pitchScale;
+        
+        // ADDED: Comprehensive debug logging for scale tracking
+        Debug.Log($"[PitchVisualizer] {gameObject.name} CreateCube - isPreRendered: {isPreRendered}, " +
+                  $"settings.cubeScale: {settings.cubeScale}, " +
+                  $"pitchScale: {pitchScale}, " +
+                  $"final scale: {scale}, " +
+                  $"pitch: {pitchData.frequency:F1}Hz");
+        
         newCube.transform.localScale = scale;
         
         // Farbe (nur für Real-Time Cubes)
@@ -527,7 +551,12 @@ public class PitchVisualizer : MonoBehaviour
     // ADDED: Method to update settings at runtime if needed
     public void UpdateSettings(VisualizationSettings newSettings)
     {
+        // ADDED: Debug settings changes
+        Debug.Log($"[PitchVisualizer] {gameObject.name} UpdateSettings() called - OLD cubeScale: {settings.cubeScale}, NEW cubeScale: {newSettings.cubeScale}");
+        
         settings = newSettings;
         ValidateSettings(); // Re-validate after update
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name} UpdateSettings() completed - FINAL cubeScale: {settings.cubeScale}");
     }
 }
