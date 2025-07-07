@@ -710,7 +710,7 @@ MonoBehaviour:
     minFrequency: 80
     maxFrequency: 800
     silenceCubeHeight: 0.05
-    silenceColor: {r: 0, g: 0, b: 0, a: 0}
+    silenceColor: {r: 0.18238991, g: 0.18181637, b: 0.18181637, a: 1}
     useHSVColorMapping: 1
     saturation: 0.8
     brightness: 1
@@ -1795,7 +1795,7 @@ MonoBehaviour:
     historySize: 10
     useSmoothing: 1
     enableDebugLogging: 1
-  nativeClip: {fileID: 8300000, guid: 2b782ad16162ed243a50bd4e5a2ce6e0, type: 3}
+  nativeClip: {fileID: 8300000, guid: 9dd45b490be55a24ebb78efb7948a619, type: 3}
   analysisInterval: 0.1
   autoLoop: 1
   enableDebugLogging: 1
@@ -2107,9 +2107,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 897609203}
-        m_TargetAssemblyTypeName: RefactoredTestManager, Assembly-CSharp
-        m_MethodName: StartTest
+      - m_Target: {fileID: 1126997249}
+        m_TargetAssemblyTypeName: ChorusingManager, Assembly-CSharp
+        m_MethodName: StartChorusing
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -2240,9 +2240,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 897609203}
-        m_TargetAssemblyTypeName: RefactoredTestManager, Assembly-CSharp
-        m_MethodName: StopTest
+      - m_Target: {fileID: 1126997249}
+        m_TargetAssemblyTypeName: ChorusingManager, Assembly-CSharp
+        m_MethodName: StopChorusing
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

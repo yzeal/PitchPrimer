@@ -111,6 +111,7 @@ public class MicrophoneSelector : MonoBehaviour
         {
             microphoneDropdown.AddOptions(new List<string> { "No microphones found" });
             microphoneDropdown.interactable = false;
+            selectedMicrophone = null;
             if (startAnalysisButton != null)
                 startAnalysisButton.interactable = false;
         }
@@ -119,7 +120,10 @@ public class MicrophoneSelector : MonoBehaviour
             microphoneDropdown.AddOptions(availableMicrophones);
             microphoneDropdown.interactable = true;
             microphoneDropdown.value = 0;
+            
+            // FIXED: Set initial microphone and update MicAnalysis immediately
             selectedMicrophone = availableMicrophones[0];
+            SetMicrophoneInAnalysis(selectedMicrophone);
 
             if (startAnalysisButton != null)
                 startAnalysisButton.interactable = true;
@@ -131,8 +135,23 @@ public class MicrophoneSelector : MonoBehaviour
         if (index >= 0 && index < availableMicrophones.Count)
         {
             selectedMicrophone = availableMicrophones[index];
+            SetMicrophoneInAnalysis(selectedMicrophone);
             UpdateStatus($"Selected: {selectedMicrophone}");
             DebugLog($"Microphone selected: {selectedMicrophone}");
+        }
+    }
+
+    // NEW: Helper method to set microphone in analysis component
+    private void SetMicrophoneInAnalysis(string microphoneName)
+    {
+        if (micAnalysis != null && !string.IsNullOrEmpty(microphoneName))
+        {
+            micAnalysis.SetMicrophone(microphoneName);
+            DebugLog($"Set microphone in analysis: {microphoneName}");
+        }
+        else
+        {
+            DebugLog("Cannot set microphone - micAnalysis is null or microphone name is empty");
         }
     }
 
@@ -151,7 +170,7 @@ public class MicrophoneSelector : MonoBehaviour
             // Stop any existing recording
             micAnalysis.StopAnalysis();
 
-            // Set the selected microphone
+            // Ensure the selected microphone is set (redundant but safe)
             micAnalysis.SetMicrophone(selectedMicrophone);
 
             // Start analysis
@@ -176,17 +195,19 @@ public class MicrophoneSelector : MonoBehaviour
         if (micAnalysis != null)
         {
             Debug.Log($"=== MICROPHONE SELECTOR DEBUG ===");
-            Debug.Log($"Selected Device: {selectedMicrophone}");
+            Debug.Log($"Selected Device (Local): {selectedMicrophone}");
+            Debug.Log($"Current Device (Analysis): {micAnalysis.CurrentDevice}");
             Debug.Log($"Is Analyzing: {micAnalysis.IsAnalyzing}");
             Debug.Log($"Is Calibrating: {micAnalysis.IsCalibrating}");
-            Debug.Log($"Current Device: {micAnalysis.CurrentDevice}");
             Debug.Log($"Ambient Noise Level: {micAnalysis.AmbientNoiseLevel:F4}");
+            Debug.Log($"Dropdown Value: {microphoneDropdown?.value}");
             
             // Show all available microphones
             Debug.Log($"Available Microphones:");
             for (int i = 0; i < availableMicrophones.Count; i++)
             {
-                Debug.Log($"  {i}: {availableMicrophones[i]}");
+                string marker = (i == microphoneDropdown?.value) ? " ? SELECTED" : "";
+                Debug.Log($"  {i}: {availableMicrophones[i]}{marker}");
             }
         }
         else
@@ -241,9 +262,9 @@ public class MicrophoneSelector : MonoBehaviour
         GUILayout.BeginArea(new Rect(10, 150, 300, 150));
         GUILayout.Label("=== Microphone Selector Status ===");
         GUILayout.Label($"Selected: {selectedMicrophone}");
+        GUILayout.Label($"Device in Analysis: {micAnalysis.CurrentDevice}");
         GUILayout.Label($"Analyzing: {micAnalysis.IsAnalyzing}");
         GUILayout.Label($"Calibrating: {micAnalysis.IsCalibrating}");
-        GUILayout.Label($"Device: {micAnalysis.CurrentDevice}");
         GUILayout.Label($"Ambient: {micAnalysis.AmbientNoiseLevel:F4}");
         GUILayout.EndArea();
     }

@@ -33,7 +33,31 @@
 
 **Batch conversion for multiple files:**
 
-    for %f in (*.mp4) do ffmpeg -i "%f" -vn -acodec pcm_s16le -ar 44100 -ac 1 "%~nf.wav"
+**PowerShell (recommended):**
+
+    Get-ChildItem *.mp4 | ForEach-Object { ffmpeg -i $_.Name -vn -acodec pcm_s16le -ar 44100 -ac 1 ($_.BaseName + ".wav") }
+
+**CMD/Batch (.bat file):**
+
+    for %%f in (*.mp4) do ffmpeg -i "%%f" -vn -acodec pcm_s16le -ar 44100 -ac 1 "%%~nf.wav"
+
+**PowerShell with progress display:**
+
+    $files = Get-ChildItem *.mp4
+    $total = $files.Count
+    $current = 0
+    foreach ($file in $files) {
+        $current++
+        Write-Host "Processing $current/$total : $($file.Name)"
+        ffmpeg -i $file.Name -vn -acodec pcm_s16le -ar 44100 -ac 1 ($file.BaseName + ".wav")
+    }
+
+**PowerShell with frequency filtering (optimized for Japanese speech):**
+
+    Get-ChildItem *.mp4 | ForEach-Object { 
+        $outputName = $_.BaseName + ".wav"
+        ffmpeg -i $_.Name -vn -acodec pcm_s16le -ar 44100 -ac 1 -af "highpass=f=80,lowpass=f=800" $outputName
+    }
 
 **Parameter explanations:**
 - `-vn` → No video track
