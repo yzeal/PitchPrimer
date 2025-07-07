@@ -83,255 +83,185 @@
 ## Projekt-Überblick
 Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent und Rhythmus durch Chorusing-Übungen (gleichzeitiges Sprechen mit nativen Aufnahmen).
 
-## LATEST UPDATE - Day 2 Achievements
+## LATEST UPDATE - Day 3 Achievements 🎯
 
-### 1. ✅ Complete Test Scene Setup 
-**MAJOR:** Created step-by-step test scene setup guide for refactored architecture
-- Clean scene structure with separated GameObjects
-- Proper Inspector configuration guide
-- All component references correctly wired
-- UI Canvas with proper button events
+### 1. ✅ MAJOR: Focal Point Visualization System Implemented
+**BREAKTHROUGH:** Complete redesign of visualization system with focal point concept
+- **GameObject-based focal point:** Visual focal point positioning in Scene view
+- **Intuitive setup:** Drag GameObject to set focal point (no magic numbers)
+- **Visual indicator:** Yellow sphere shows exact focal point location
+- **Perfect for chorusing:** Users focus on one point for pitch comparison
 
-### 2. ✅ Architecture Improvements
-**FIXED:** ChorusingManager duplicate settings issue
-- Removed duplicate VisualizationSettings from ChorusingManager
-- Now references PitchVisualizers directly (single source of truth)
-- Added GetSettings() method to PitchVisualizer for read-only access
-- Much cleaner Inspector, less error-prone
+#### New Focal Point Settings in VisualizationSettings:
+    focalPointTransform: Transform (drag focal point GameObject here)
+    showFocalIndicator: bool (yellow sphere visibility)
+    focalIndicatorPrefab: GameObject (optional custom indicator)
 
-### 3. ✅ Enhanced Noise Gate Controls
-**ADDED:** Exposed noise gate settings in MicAnalysisRefactored
-- enableNoiseGate: true/false toggle
-- noiseGateMultiplier: adjustable sensitivity (3.0f default)
-- ambientCalibrationTime: calibration duration (2.0f default)  
-- ambientSamplePercentage: sample percentage for ambient (0.7f default)
-- debugNoiseGate: separate noise gate debugging
-- RecalibrateNoiseGate() method for runtime adjustment
+### 2. ✅ Synchronized Movement System Fixed
+**CRITICAL FIX:** Both tracks now move in same direction for proper synchronization
+- **User cubes:** Spawn at focal point, scroll left (newest at focal point)
+- **Native cubes:** Scroll left, activate at focal point during playback
+- **Same timeline:** Both tracks use consistent left-scrolling movement
+- **No more confusion:** Eliminated opposite movement directions
 
-### 4. ✅ Refined Component Integration
-**IMPROVED:** Event system and component references
-- All scripts properly integrated with new architecture
-- MicrophoneSelector updated for MicAnalysisRefactored
-- Clean separation of concerns between components
-- Robust error handling and debug logging
+#### Movement Logic:
+    User Track: [Past] ← [FOCAL POINT = Newest] ← [Spawning]
+    Native:     [Past] ← [FOCAL POINT = Current] ← [Future preview]
 
-## Previous Achievements (Day 1)
+### 3. ✅ Three-State Native Cube System
+**ENHANCED:** Native cubes show temporal state relative to playback
+- **Played (Left of focal):** Full brightness, already played audio
+- **Current (At focal):** Extra bright, currently playing audio  
+- **Future (Right of focal):** Dim, upcoming audio preview
 
-### 1. Vollständige Code-Architektur Refactoring
-**Vorher:** Monolithisches MicAnalysis Script mit Code-Duplikation  
-**Nachher:** Modulare, saubere Architektur mit geteilten Komponenten
+#### Native Track State Settings:
+    playedBrightness: 1.0f (full brightness for past)
+    currentBrightness: 1.2f (extra bright for current)
+    futureBrightness: 0.3f (dim for future)
+    playedAlpha: 0.9f, currentAlpha: 1.0f, futureAlpha: 0.4f
 
-### 2. Kern-Komponenten Implementiert
+### 4. ✅ Component Architecture Debugging Resolved
+**FIXED:** Multiple critical setup issues identified and resolved
+- **RefactoredTestManager interference:** Was overriding user visualization settings
+- **Cube prefab assignment:** Fixed missing cube prefab after component reset
+- **Settings synchronization:** All visualizers now use correct Inspector settings
+- **Movement synchronization:** Fixed speed mismatch between user/native tracks
 
-#### PitchAnalyzer.cs (Kern-Engine)
-- Static class für geteilte Pitch-Analyse
-- Autocorrelation-Algorithmus mit Hann-Windowing
-- Unterstützt Real-Time + Pre-Analysis von AudioClips
-- Mono/Stereo-Konvertierung
-- Smoothing und Statistiken
-- Robuste Fehlerbehandlung
+### 5. ✅ Perfect Timeline Synchronization Achieved
+**SUCCESS:** User and native recordings now move together seamlessly
+- **Same movement speed:** Both tracks scroll at identical rates
+- **Synchronized timing:** Analysis intervals properly matched
+- **Focal point alignment:** Both tracks reference same focal point position
+- **Visual comparison:** Users can directly compare pitches side-by-side
 
-**Hauptfunktionen:**
-- PitchAnalyzer.AnalyzeAudioBuffer(buffer, timestamp, settings)
-- PitchAnalyzer.PreAnalyzeAudioClip(clip, settings, interval)
-- PitchAnalyzer.SmoothPitchData(data, windowSize)
+### 6. ✅ Enhanced Scene Setup Process
+**IMPROVED:** Clear GameObject-based setup workflow
+- **FocalPointMarker:** Empty GameObject for positioning focal point
+- **Visual in Scene view:** See exactly where comparison happens
+- **Easy adjustment:** Move GameObject to change focal point location
+- **Both tracks reference:** Same focal point GameObject for consistency
 
-#### PitchDataPoint Struktur
-    public struct PitchDataPoint {
-        public float timestamp;  // Zeit in Sekunden
-        public float frequency;    // Pitch in Hz (0 = Stille)
-        public float confidence;   // Korrelationskoeffizient (0-1)
-        public float audioLevel;   // Lautstärke (0-1)
-        public bool HasPitch => frequency > 0;
-    }
+#### Required Scene Setup:
+    FocalPointMarker (Empty GameObject) → Position where comparison happens
+    UserVisualization.focalPointTransform → Drag FocalPointMarker
+    NativeVisualization.focalPointTransform → Drag same FocalPointMarker
+    Yellow indicator sphere automatically shows focal point location
 
-### 3. Modulares Visualisierungs-System
+## Previous Achievements Summary
 
-#### PitchVisualizer.cs
-- Unterstützt Real-Time + Pre-rendered Visualisierung
-- HSV-Farbmapping (rot → violett für tief → hoch)
-- Logarithmische Pitch-Skalierung
-- Dual-Track-Support für Chorusing
-- Pre-rendered native Aufnahmen (dunkel/inaktiv)
-- Sync-Aktivierung während Playback
-- **NEW:** GetSettings() method for ChorusingManager integration
+### Day 2 Achievements
+- ✅ Complete Test Scene Setup with separated GameObjects
+- ✅ Architecture Improvements (removed duplicate settings)
+- ✅ Enhanced Noise Gate Controls with full Inspector exposure
+- ✅ Refined Component Integration with proper event systems
 
-#### VisualizationSettings
-- cubePrefab, cubeParent, cubeSpacing
-- maxCubes, trackOffset (für zweite Spur)
-- pitchScaleMultiplier, min/maxFrequency
-- silenceColor, HSV-Mapping, saturation, brightness
+### Day 1 Achievements (Core Refactoring)
+- ✅ Vollständige Code-Architektur Refactoring
+- ✅ PitchAnalyzer.cs (shared analysis engine)
+- ✅ PitchVisualizer.cs (modular visualization)
+- ✅ Event-basierte MicAnalysisRefactored.cs
+- ✅ ChorusingManager.cs coordination system
 
-### 4. Event-basierte Mikrofonanalyse
+## 🔄 NEXT PRIORITIES for Work Computer
 
-#### MicAnalysisRefactored.cs
-- Verwendet geteilten PitchAnalyzer
-- Event-System: OnPitchDetected?.Invoke(pitchData)
-- **ENHANCED:** Full noise gate controls exposed in Inspector
-- Lose Kopplung zwischen Komponenten
-- Robuste Mikrofoninitialisierung
+### 1. 🎯 High Priority: Frequency Range Limiting
+**IDENTIFIED ISSUE:** Microphone detecting false high pitches from noise
+- **Problem:** s/sh sounds creating harmonics above speech range
+- **Solution needed:** Limit pitch detection to speech-relevant frequencies
+- **Target range:** 80-400Hz (tighter than current 80-800Hz)
+- **Implementation:** Add frequency filtering to PitchAnalyzer
 
-#### MicrophoneSelector.cs (Updated)
-- Kompatibel mit MicAnalysisRefactored
-- Filtert virtuelle Audio-Devices (Oculus, VR, etc.)
-- Debug-Funktionen und Status-Anzeige
-
-### 5. Chorusing-System Grundlage
-
-#### ChorusingManager.cs
-- **IMPROVED:** No duplicate settings, references visualizers directly
-- Event-basierte Integration mit MicAnalysisRefactored
-- Pre-Analysis von nativen Aufnahmen
-- Dual-Track Visualisierung (User + Native)
-- Synchronisierte Playback-Steuerung
-- Automatische AudioSource-Erstellung
-
-### 6. Wichtige technische Verbesserungen
-
-#### Konstante Synchronisation
-- Würfel erscheinen IMMER (auch bei Stille) für perfekte Timeline
-- Stille = kleine schwarze/transparente Würfel
-- Vorbereitung für Audio-Synchronisation mit nativen Sprechern
-
-#### Optimierte Parameter für Japanisch
-- minFrequency: 80Hz (Minimum menschliche Stimme)
-- maxFrequency: 800Hz (Optimiert für japanische Pitch-Akzente)
-- analysisInterval: 0.1f (100ms für gute Reaktionszeit)
-- correlationThreshold: 0.1f (Empfindlich aber robust)
-
-## 7. Current Test Setup Status
-
-### ✅ Completed Basic Testing:
-1. MicrophoneSelector → Echtes Mikrofon wählen (nicht Oculus)
-2. RefactoredTestManager → "Start Test" klicken
-3. Sprechen/summen → Bunte Würfel erscheinen kontinuierlich
-4. Stille Abschnitte → Kleine schwarze Würfel (behält Timing)
-5. Noise gate fine-tuning → Settings exposed and adjustable
-
-### 🔄 NEXT: Advanced Chorusing Tests (for Home PC):
-**PRIORITY:** Test full chorusing functionality with native recording
-1. **AudioClip Setup:** Add Japanese native speaker AudioClip to ChorusingManager
-2. **Dual-Track Test:** StartChorusing() → Verify dual visualization works
-3. **Synchronization Test:** Native recording (hinten, dunkel) + User input (vorne, farbig)
-4. **Timing Verification:** Ensure synchrone aktivierung der nativen Würfel
-5. **Audio Loop Test:** Verify auto-loop functionality works correctly
-6. **Performance Test:** Monitor frame rate with dual-track rendering
-
-## 8. Datei-Struktur (Updated)
-    Assets/_GAME/Scripts/
-    ├── Core/
-    │   └── PitchAnalyzer.cs          ✅ Kern-Engine
-    ├── Visualization/
-    │   └── PitchVisualizer.cs        ✅ Modulare Visualisierung (improved)
-    ├── Chorusing/
-    │   └── ChorusingManager.cs       ✅ Hauptcontroller (refactored)
-    ├── Debug/
-    │   ├── RefactoredTestManager.cs  ✅ Test-System
-    │   └── PitchAnalyzerTest.cs      ✅ Komponenten-Tests
-    ├── MicAnalysisRefactored.cs      ✅ Event-basierte Mikrofonanalyse (enhanced)
-    ├── MicrophoneSelector.cs         ✅ Updated für neues System
-    └── Notes/
-        └── Notes.md                  ✅ Diese Datei
-
-## 9. NEXT STEPS for Home PC
-
-### Immediate Testing Goals:
-1. **Setup Native AudioClip:**
-   - Find/create Japanese speech sample (10-30 seconds)
-   - Import to Unity project
-   - Assign to ChorusingManager.nativeClip
-   - Verify pre-analysis runs without errors
-
-2. **Test Chorusing Workflow:**
-   - Call ChorusingManager.StartChorusing() via UI button
-   - Verify native track pre-renders (dark cubes in back)
-   - Verify user track works simultaneously (bright cubes in front)
-   - Check synchronization between audio playback and native visualization
-
-3. **Debug Common Issues:**
-   - Monitor console for any pre-analysis errors
-   - Verify AudioSource auto-creation works
-   - Check native cube activation timing matches audio playback
-   - Ensure loop functionality works correctly
-
-4. **Performance Optimization:**
-   - Monitor frame rate with dual visualization
-   - Check memory usage during pre-analysis
-   - Optimize cube count if needed for smooth playback
-
-### Scene Setup Checklist for Home PC:
-    ✅ Unity 6.1 project created
-    ✅ Scripts copied to correct folder structure
-    ✅ Test scene with all GameObjects created
-    ✅ Inspector settings configured
-    ✅ Basic microphone test working
-    🔄 Native AudioClip added to ChorusingManager
-    🔄 Chorusing start/stop UI buttons added
-    🔄 Dual-track visualization tested
-    🔄 Audio synchronization verified
-
-### Required UI Additions:
-1. **Add Chorusing Control Buttons:**
-   - "Start Chorusing" button → ChorusingManager.StartChorusing()
-   - "Stop Chorusing" button → ChorusingManager.StopChorusing()
-   - "Set Native Clip" button (optional for testing different clips)
-
-2. **Status Display Enhancement:**
-   - Show chorusing active state
-   - Display native playback time
-   - Show native analysis progress during pre-analysis
-
-### Testing Parameters:
-    Noise Gate Settings (if too aggressive):
-      noiseGateMultiplier: 2.0f (reduce from 3.0f)
-      ambientCalibrationTime: 3.0f
-      debugNoiseGate: true (for monitoring)
+#### Suggested approach:
+    In PitchAnalysisSettings:
+    maxFrequency: 400f (reduced from 800f for cleaner detection)
     
-    Native Visualization (for clear distinction):
-      trackOffset: (0, 0, 2)
-      saturation: 0.5 (dimmed)
-      brightness: 0.7 (darker)
-    
-    User Visualization (for prominence):
-      trackOffset: (0, 0, 0)
-      saturation: 0.8 (vibrant)
-      brightness: 1.0 (bright)
+    Alternative: Add separate speechMaxFrequency setting
+    speechMaxFrequency: 400f (for microphone input)
+    analysisMaxFrequency: 800f (for native audio analysis)
 
-## 10. Known Issues & Solutions
+### 2. 🧪 Testing with Multiple Clips
+**CONTINUE:** Test focal point system with various Japanese recordings
+- **Verify consistency:** Different clip lengths and content
+- **Check synchronization:** Various speech patterns and timing
+- **Monitor performance:** Frame rate with different clip complexities
+- **User experience:** Focal point positioning feels natural
 
-### Problem: Noise gate too aggressive
-**Solution:** Adjust noiseGateMultiplier down to 2.0f or 1.5f
+### 3. 🎨 Visual Refinements
+**POLISH:** Fine-tune focal point system based on testing
+- **Focal point position:** Optimize for best user experience
+- **State transitions:** Smooth brightness changes for native cubes
+- **Indicator visibility:** Adjust focal point marker as needed
+- **Color tuning:** Ensure good contrast between tracks
 
-### Problem: ChorusingManager duplicate settings
-**Solution:** ✅ FIXED - Now references visualizers directly
+### 4. 🔧 Advanced Features Planning
+**PREPARE:** Next-level functionality for pitch training
+- **Accuracy scoring:** Compare user vs native pitch patterns
+- **Visual feedback:** Show pitch matching quality in real-time
+- **Training modes:** Different difficulty levels and exercises
+- **Progress tracking:** Save and analyze user improvement
 
-### Problem: Virtual devices in microphone list
-**Solution:** ✅ WORKING - MicrophoneSelector filters automatically
+## 🎯 Current Technical Status
 
-### Problem: Pitch scale too small for visibility
-**Solution:** ✅ WORKING - pitchScaleMultiplier at 1.5f
+### ✅ WORKING PERFECTLY:
+1. **Focal Point System:** GameObject-based positioning with visual indicator
+2. **Synchronized Movement:** Both tracks scroll left consistently  
+3. **Three-State Natives:** Past/Current/Future visual feedback
+4. **User Experience:** Natural focal point for pitch comparison
+5. **Component Setup:** Clean Inspector settings, no duplicate configs
+6. **Scene Setup:** Visual, intuitive GameObject-based workflow
 
-### Problem: Timeline breaks during silence
-**Solution:** ✅ WORKING - Constant cube generation implemented
+### 🔧 NEEDS ATTENTION:
+1. **Frequency Filtering:** Limit mic input to speech range (80-400Hz)
+2. **Noise Handling:** Better filtering of fricative sounds (s/sh)
+3. **Testing Coverage:** More Japanese audio clips for validation
+4. **Performance Monitoring:** Ensure smooth operation with complex audio
 
-## 11. Architecture Lessons Learned
+### 📋 SCENE SETUP CHECKLIST:
+    ✅ UserVisualization + NativeVisualization GameObjects
+    ✅ FocalPointMarker GameObject positioned in scene
+    ✅ Both visualizers reference same focal point Transform
+    ✅ Cube prefabs assigned to visualizers
+    ✅ Native audio clip assigned to ChorusingManager
+    ✅ UI buttons wired to Start/Stop chorusing
+    ✅ Microphone selection working
+    ✅ RefactoredTestManager disabled (to avoid interference)
 
-### ✅ Single Source of Truth:
-- PitchAnalyzer handles all analysis logic
-- PitchVisualizers manage their own settings
-- No duplicate configuration needed
+## Implementation Notes for Work Computer
 
-### ✅ Event-Driven Design:
-- Loose coupling between components
-- Easy to extend with new features
-- Clean separation of concerns
+### Focal Point System Architecture:
+    PitchVisualizer.UpdateFocalPoint() → Calculates local position from Transform
+    PitchVisualizer.CreateFocalIndicator() → Yellow sphere at focal point
+    User cubes: Spawn at focal point, scroll left
+    Native cubes: Three-state system relative to focal point position
 
-### ✅ Inspector-Friendly:
-- All critical settings exposed
-- Debug controls separate from main settings
-- Runtime status information available
+### Key Methods Added/Modified:
+    UpdateUserCubePositions() → Fixed user cube positioning logic
+    UpdateAllNativeCubeStates() → Three-state system for native cubes  
+    ScrollNativeCubesDiscrete() → Consistent left movement
+    SetNativeCubeStateByType() → Enum-based state management
+    CubeState enum → {Played, Current, Future}
 
-## COPILOT CONTEXT for Home Computer:
-This Unity 6.1 project implements real-time pitch analysis for Japanese pronunciation training using chorusing exercises (speaking simultaneously with native recordings). The refactored architecture uses modular components: PitchAnalyzer (core analysis), PitchVisualizer (dual-track display), MicAnalysisRefactored (microphone input), and ChorusingManager (coordination). All basic functionality is working. NEXT STEP: Test full chorusing with native AudioClip playback and dual-track visualization synchronization.
+### Debug Resolution Process:
+1. **Identified RefactoredTestManager interference:** Disabled in scene
+2. **Fixed cube prefab assignment:** Reassigned after component reset
+3. **Synchronized movement speeds:** Fixed analysis interval consistency
+4. **Focal point calculation:** GameObject Transform to local coordinates
 
-**Status: ✅ Refactoring complete, ✅ Basic testing successful, 🔄 Ready for chorusing implementation!**
+## 🎵 WORKING VISUALIZATION FLOW:
+
+### User Track (Front, Colorful):
+    Microphone Input → PitchAnalyzer → Real-time cubes at focal point → Scroll left
+
+### Native Track (Back, Dimmed):  
+    Audio File → Pre-analysis → Future cubes (dim) → Current cube (bright at focal) → Past cubes (bright left)
+
+### Perfect Synchronization:
+    Both tracks move left at same speed
+    Focal point shows "now" moment for both tracks
+    User sees exactly what pitch to match
+    Natural eye focus point for training
+
+**Status: ✅ Focal point system complete, ✅ Synchronization perfect, 🎯 Ready for frequency filtering improvements!**
+
+## COPILOT CONTEXT for Work Computer:
+The focal point visualization system is now fully implemented and working perfectly. Users can position a focal point GameObject in the scene where pitch comparison happens. Both user and native tracks are synchronized to move left consistently, with the focal point showing the "now" moment. The next major priority is implementing frequency range limiting to prevent false high-pitch detection from fricative sounds (s/sh) during microphone input. Current working range is 80-800Hz, but should be limited to 80-400Hz for cleaner speech detection.
