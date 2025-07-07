@@ -19,6 +19,19 @@ public class VisualizationSettings
     public int maxCubes = 30;
     public Vector3 trackOffset = Vector3.zero; // Offset für zweite Spur
     
+    [Header("Focal Point System")]
+    public Transform focalPointTransform; // ? NEW: Drag GameObject here!
+    public bool showFocalIndicator = true;
+    public GameObject focalIndicatorPrefab; // Optional visual marker
+    
+    [Header("Native Track States")]
+    public float playedBrightness = 1.0f; // Full brightness for played cubes
+    public float currentBrightness = 1.2f; // Extra bright for focal cube  
+    public float futureBrightness = 0.3f; // Dim for future cubes
+    public float playedAlpha = 0.9f;
+    public float currentAlpha = 1.0f;
+    public float futureAlpha = 0.4f;
+    
     [Header("Pitch Mapping")]
     public float pitchScaleMultiplier = 1.5f;
     public float minFrequency = 80f;
@@ -46,12 +59,24 @@ public class PitchVisualizer : MonoBehaviour
     // NEW: Variables for synchronized scrolling
     private bool isNativeTrack = false;
     private float lastPlaybackTime = 0f;
-    private float nativeCubeOffset = 0f; // NEW: Track total scroll offset
+    private float nativeCubeOffset = 0f;
     
     // NEW: Variables for looping native track
-    private List<PitchDataPoint> originalNativePitchData; // Store original data for looping
-    private float nativeClipDuration = 0f; // Duration of native clip
-    private int visibleCubeStartIndex = 0; // Where the visible window starts in the data
+    private List<PitchDataPoint> originalNativePitchData;
+    private float nativeClipDuration = 0f;
+    private int visibleCubeStartIndex = 0;
+    
+    // NEW: Focal point system
+    private GameObject focalIndicator;
+    private float focalPointLocalX = 0f; // Cached focal point in local space
+    
+    // NEW: Enum for cube states
+    private enum CubeState
+    {
+        Played,   // Past - bright
+        Current,  // At focal point - extra bright
+        Future    // Future - dim
+    }
     
     // FIXED: Add Awake method to ensure initialization
     void Awake()
@@ -65,6 +90,8 @@ public class PitchVisualizer : MonoBehaviour
     {
         Debug.Log($"[PitchVisualizer] {gameObject.name} Start() - cubeScale: {settings.cubeScale}");
         EnsureInitialization();
+        UpdateFocalPoint(); // Calculate focal point position
+        CreateFocalIndicator(); // Create visual marker
     }
     
     // ADDED: Safe initialization method
@@ -86,6 +113,71 @@ public class PitchVisualizer : MonoBehaviour
         if (!isNativeTrack) Debug.Log($"[PitchVisualizer] {gameObject.name} initialized - cubeScale: {settings.cubeScale}");
     }
     
+    // NEW: Calculate focal point position in local space
+    private void UpdateFocalPoint()
+    {
+        if (settings.focalPointTransform != null && settings.cubeParent != null)
+        {
+            // Convert world position to local position relative to cubeParent
+            Vector3 localPos = settings.cubeParent.InverseTransformPoint(settings.focalPointTransform.position);
+            focalPointLocalX = localPos.x;
+            
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Focal point updated - Local X: {focalPointLocalX:F2}");
+        }
+        else
+        {
+            // Fallback to middle of visible area
+            focalPointLocalX = (settings.maxCubes * settings.cubeSpacing) * 0.4f; // 40% into the visible area
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Using fallback focal point: {focalPointLocalX:F2}");
+        }
+    }
+    
+    // NEW: Create visual indicator for focal point
+    private void CreateFocalIndicator()
+    {
+        if (!settings.showFocalIndicator || settings.cubeParent == null) return;
+        
+        // Clean up existing indicator
+        if (focalIndicator != null)
+        {
+            DestroyImmediate(focalIndicator);
+        }
+        
+        // Create new indicator
+        if (settings.focalIndicatorPrefab != null)
+        {
+            focalIndicator = Instantiate(settings.focalIndicatorPrefab, settings.cubeParent);
+        }
+        else
+        {
+            // Create default indicator
+            focalIndicator = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            focalIndicator.name = "FocalPointIndicator";
+            focalIndicator.transform.SetParent(settings.cubeParent);
+            
+            // Style the indicator
+            focalIndicator.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
+            var renderer = focalIndicator.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.material.color = new Color(1f, 1f, 0f, 0.7f); // Yellow, semi-transparent
+            }
+        }
+        
+        // Position at focal point
+        Vector3 focalPos = new Vector3(focalPointLocalX, 0f, 0f) + settings.trackOffset;
+        focalPos.y += 2f; // Slightly above cubes
+        focalIndicator.transform.localPosition = focalPos;
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Created focal indicator at: {focalPos}");
+    }
+    
+    // NEW: Get focal point index in cube array
+    private int GetFocalCubeIndex()
+    {
+        return Mathf.RoundToInt(focalPointLocalX / settings.cubeSpacing);
+    }
+    
     public void Initialize(VisualizationSettings visualSettings)
     {
         // ADDED: Debug what settings are being passed in
@@ -93,6 +185,8 @@ public class PitchVisualizer : MonoBehaviour
         
         settings = visualSettings;
         EnsureInitialization(); // Use safe initialization
+        UpdateFocalPoint(); // Recalculate focal point
+        CreateFocalIndicator(); // Recreate indicator
 
         if (!isNativeTrack) Debug.Log($"[PitchVisualizer] {gameObject.name} manually initialized with settings - FINAL cubeScale: {settings.cubeScale}");
     }
@@ -116,7 +210,7 @@ public class PitchVisualizer : MonoBehaviour
     }
     
     /// <summary>
-    /// Für Real-Time Mikrofonaufnahme
+    /// ENHANCED: User cubes spawn at focal point and scroll left
     /// </summary>
     public void AddRealtimePitchData(PitchDataPoint pitchData)
     {
@@ -134,7 +228,30 @@ public class PitchVisualizer : MonoBehaviour
             activeCubes.Enqueue(cube);
         }
         MaintainCubeCount();
-        UpdateCubePositions();
+        UpdateUserCubePositions(); // NEW: Updated method for focal point spawning
+    }
+    
+    // FIXED: User cubes now spawn at focal point and move left consistently
+    private void UpdateUserCubePositions()
+    {
+        if (activeCubes == null) return;
+        
+        var cubeArray = activeCubes.ToArray();
+        
+        for (int i = 0; i < cubeArray.Length; i++)
+        {
+            var cube = cubeArray[i];
+            if (cube != null)
+            {
+                // FIXED: Newest cube (last in queue) at focal point, older cubes move left
+                int age = cubeArray.Length - 1 - i; // 0 = newest, higher = older
+                float cubeX = focalPointLocalX - (age * settings.cubeSpacing);
+                Vector3 newPos = new Vector3(cubeX, cube.transform.localPosition.y, 0) + settings.trackOffset;
+                cube.transform.localPosition = newPos;
+                
+                Debug.Log($"[PitchVisualizer] {gameObject.name} User cube {i} (age {age}) positioned at X: {cubeX:F2}");
+            }
+        }
     }
     
     /// <summary>
@@ -170,12 +287,14 @@ public class PitchVisualizer : MonoBehaviour
         Debug.Log($"[PitchVisualizer] {gameObject.name} Pre-rendered {preRenderedCubes.Count} cubes, clip duration: {nativeClipDuration}s");
     }
     
-    // NEW: Create initial window of native cubes
+    // FIXED: Native cubes positioned relative to focal point
     private void CreateInitialNativeWindow()
     {
         if (originalNativePitchData == null) return;
         
-        // Create cubes for the visible window (maxCubes worth)
+        int focalIndex = GetFocalCubeIndex();
+        
+        // Create cubes for the visible window, centered around focal point
         for (int i = 0; i < settings.maxCubes && i < originalNativePitchData.Count; i++)
         {
             var pitchData = originalNativePitchData[i];
@@ -183,29 +302,21 @@ public class PitchVisualizer : MonoBehaviour
             
             if (cube != null)
             {
+                // FIXED: Position relative to focal point
+                float cubeX = focalIndex * settings.cubeSpacing + (i - focalIndex) * settings.cubeSpacing;
+                Vector3 pos = new Vector3(cubeX, 0, 0) + settings.trackOffset;
+                cube.transform.localPosition = pos;
+                
                 preRenderedCubes.Add(cube);
-                SetCubeInactive(cube, pitchData);
+                SetNativeCubeState(cube, i, 0, i); // Initial state (all future)
                 
                 Debug.Log($"[PitchVisualizer] {gameObject.name} Created native cube {i}: pitch={pitchData.frequency:F1}Hz, pos={cube.transform.localPosition}");
             }
         }
     }
     
-    // NEW: Set cube to inactive appearance
-    private void SetCubeInactive(GameObject cube, PitchDataPoint pitchData)
-    {
-        var renderer = cube.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            Color cubeColor = GetCubeColor(pitchData);
-            cubeColor = Color.Lerp(cubeColor, Color.gray, 0.8f); // Very dark
-            cubeColor.a = 0.3f; // Very transparent
-            renderer.material.color = cubeColor;
-        }
-    }
-    
     /// <summary>
-    /// SIMPLE FIX: Force movement every frame regardless of data
+    /// FIXED: Native track synchronized with user movement and focal point
     /// </summary>
     public void UpdateNativeTrackPlayback(float playbackTime, List<PitchDataPoint> pitchDataList)
     {
@@ -222,75 +333,108 @@ public class PitchVisualizer : MonoBehaviour
         
         if (deltaTime >= settings.analysisInterval)
         {
-            // Always move one step, regardless of data density
+            // FIXED: Move all cubes left (same direction as user cubes)
             ScrollNativeCubesDiscrete(1);
             
-            // Update cubes
+            // Update cubes - add new ones at the RIGHT edge (they'll scroll to focal point)
             AddSimpleNativeCube(loopedPlaybackTime);
             RemoveOffscreenNativeCubes();
             
-            // Activate current cube
+            // Find current playback index and update all cube states
             int targetIndex = FindIndexByTime(loopedPlaybackTime, originalNativePitchData);
-            ActivateNativeCubeAtCurrentPosition(targetIndex);
+            UpdateAllNativeCubeStates(targetIndex);
             
             lastPlaybackTime = loopedPlaybackTime;
             
-            Debug.Log($"[PitchVisualizer] {gameObject.name} Simple move at time {loopedPlaybackTime:F2}");
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Native update - PlaybackIndex: {targetIndex}, FocalIndex: {GetFocalCubeIndex()}");
         }
     }
     
-    // NEW: Add simple native cube
-    private void AddSimpleNativeCube(float loopedPlaybackTime)
+    // FIXED: Update native cube states based on focal point position
+    private void UpdateAllNativeCubeStates(int currentPlaybackIndex)
     {
-        if (originalNativePitchData == null) return;
+        int focalIndex = GetFocalCubeIndex();
         
-        // Calculate which data index should appear at the right edge
-        int newDataIndex = (visibleCubeStartIndex + settings.maxCubes) % originalNativePitchData.Count;
-        var newPitchData = originalNativePitchData[newDataIndex];
-        
-        // Create new cube at the right edge
-        GameObject newCube = CreateCube(newPitchData, true, settings.maxCubes - 1);
-        if (newCube != null)
+        for (int i = 0; i < preRenderedCubes.Count; i++)
         {
-            // Position at right edge
-            Vector3 pos = new Vector3((settings.maxCubes - 1) * settings.cubeSpacing, 0, 0) + settings.trackOffset;
-            newCube.transform.localPosition = pos;
+            var cube = preRenderedCubes[i];
+            if (cube == null) continue;
             
-            preRenderedCubes.Add(newCube);
-            SetCubeInactive(newCube, newPitchData);
+            // Calculate the actual data index for this cube
+            int globalDataIndex = (visibleCubeStartIndex + i) % originalNativePitchData.Count;
             
-            Debug.Log($"[PitchVisualizer] {gameObject.name} Added new cube at right edge: dataIndex={newDataIndex}, pitch={newPitchData.frequency:F1}Hz");
-        }
-        
-        // Update visible window start index
-        visibleCubeStartIndex = (visibleCubeStartIndex + 1) % originalNativePitchData.Count;
-    }
-    
-    private void ActivateNativeCubeAtCurrentPosition(int targetIndex)
-    {
-        if (originalNativePitchData == null || targetIndex >= originalNativePitchData.Count) return;
-        
-        var currentPitchData = originalNativePitchData[targetIndex];
-        
-        // Find which cube in the visible window corresponds to this playback position
-        // This is typically around the left side of the visible area (where activation happens)
-        int activationCubeIndex = 5; // Activate cube at position 5 (adjust as needed for visual preference)
-        
-        if (activationCubeIndex < preRenderedCubes.Count)
-        {
-            var cubeToActivate = preRenderedCubes[activationCubeIndex];
-            if (cubeToActivate != null)
+            // FIXED: Determine state based on cube's position relative to focal point
+            float cubeLocalX = cube.transform.localPosition.x - settings.trackOffset.x;
+            int cubeVisualIndex = Mathf.RoundToInt(cubeLocalX / settings.cubeSpacing);
+            
+            // State logic: cubes at/near focal point are "current"
+            CubeState state;
+            if (cubeVisualIndex < focalIndex - 1)
             {
-                var renderer = cubeToActivate.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    Color activeColor = GetCubeColor(currentPitchData);
-                    activeColor = Color.Lerp(activeColor, activeColor, settings.saturation);
-                    activeColor.a = 0.8f; // Semi-transparent to distinguish from user
-                    renderer.material.color = activeColor;
-                }
+                state = CubeState.Played; // Past (left of focal)
             }
+            else if (cubeVisualIndex >= focalIndex - 1 && cubeVisualIndex <= focalIndex + 1)
+            {
+                state = CubeState.Current; // Current (at focal point)
+            }
+            else
+            {
+                state = CubeState.Future; // Future (right of focal)
+            }
+            
+            SetNativeCubeStateByType(cube, globalDataIndex, state);
         }
+    }
+    
+    // NEW: Set cube state by type
+    private void SetNativeCubeStateByType(GameObject cube, int dataIndex, CubeState state)
+    {
+        var renderer = cube.GetComponent<Renderer>();
+        if (renderer == null) return;
+        
+        var pitchData = originalNativePitchData[dataIndex];
+        Color baseColor = GetCubeColor(pitchData);
+        
+        switch (state)
+        {
+            case CubeState.Played:
+                baseColor *= settings.playedBrightness;
+                baseColor.a = settings.playedAlpha;
+                break;
+            case CubeState.Current:
+                baseColor *= settings.currentBrightness;
+                baseColor.a = settings.currentAlpha;
+                break;
+            case CubeState.Future:
+                baseColor *= settings.futureBrightness;
+                baseColor.a = settings.futureAlpha;
+                break;
+        }
+        
+        renderer.material.color = baseColor;
+    }
+    
+    // NEW: Set native cube state (compatibility method)
+    private void SetNativeCubeState(GameObject cube, int cubeIndex, int currentPlaybackIndex, int globalDataIndex = -1)
+    {
+        // Determine state based on playback position
+        int dataIndex = globalDataIndex >= 0 ? globalDataIndex : (visibleCubeStartIndex + cubeIndex) % originalNativePitchData.Count;
+        
+        CubeState state;
+        if (dataIndex < currentPlaybackIndex)
+        {
+            state = CubeState.Played;
+        }
+        else if (dataIndex == currentPlaybackIndex)
+        {
+            state = CubeState.Current;
+        }
+        else
+        {
+            state = CubeState.Future;
+        }
+        
+        SetNativeCubeStateByType(cube, dataIndex, state);
     }
     
     // NEW: Discrete stepping movement (like user cubes)
@@ -313,6 +457,33 @@ public class PitchVisualizer : MonoBehaviour
         Debug.Log($"[PitchVisualizer] {gameObject.name} Scrolled {steps} steps, distance: {scrollDistance}");
     }
     
+    // NEW: Add simple native cube
+    private void AddSimpleNativeCube(float loopedPlaybackTime)
+    {
+        if (originalNativePitchData == null) return;
+        
+        // Calculate which data index should appear at the right edge
+        int newDataIndex = (visibleCubeStartIndex + settings.maxCubes) % originalNativePitchData.Count;
+        var newPitchData = originalNativePitchData[newDataIndex];
+        
+        // Create new cube at the right edge
+        GameObject newCube = CreateCube(newPitchData, true, settings.maxCubes - 1);
+        if (newCube != null)
+        {
+            // Position at right edge
+            Vector3 pos = new Vector3((settings.maxCubes - 1) * settings.cubeSpacing, 0, 0) + settings.trackOffset;
+            newCube.transform.localPosition = pos;
+            
+            preRenderedCubes.Add(newCube);
+            SetNativeCubeState(newCube, settings.maxCubes - 1, currentPlaybackIndex, newDataIndex);
+            
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Added new cube at right edge: dataIndex={newDataIndex}, pitch={newPitchData.frequency:F1}Hz");
+        }
+        
+        // Update visible window start index
+        visibleCubeStartIndex = (visibleCubeStartIndex + 1) % originalNativePitchData.Count;
+    }
+    
     // NEW: Remove cubes that scrolled off the left side
     private void RemoveOffscreenNativeCubes()
     {
@@ -330,7 +501,7 @@ public class PitchVisualizer : MonoBehaviour
         }
     }
     
-    // FIXED: Return type changed from void to GameObject
+    // ENHANCED: Create cube with proper focal point positioning
     private GameObject CreateCube(PitchDataPoint pitchData, bool isPreRendered, int index = -1)
     {
         if (settings.cubePrefab == null || settings.cubeParent == null) 
@@ -346,13 +517,13 @@ public class PitchVisualizer : MonoBehaviour
         float xPosition;
         if (isPreRendered)
         {
-            // Native cubes: spread them out initially based on their index
-            xPosition = index * settings.cubeSpacing;
+            // Native cubes: will be positioned by CreateInitialNativeWindow
+            xPosition = index * settings.cubeSpacing; // Temporary, will be repositioned
         }
         else
         {
-            // User cubes: position based on queue count
-            xPosition = (activeCubes?.Count ?? 0) * settings.cubeSpacing;
+            // User cubes: spawn at focal point (will be repositioned by UpdateUserCubePositions)
+            xPosition = focalPointLocalX;
         }
         
         Vector3 position = new Vector3(xPosition, 0, 0) + settings.trackOffset;
@@ -362,13 +533,6 @@ public class PitchVisualizer : MonoBehaviour
         float pitchScale = CalculatePitchScale(pitchData);
         Vector3 scale = settings.cubeScale;
         scale.y = pitchScale;
-        
-        // ADDED: Comprehensive debug logging for scale tracking
-        Debug.Log($"[PitchVisualizer] {gameObject.name} CreateCube - isPreRendered: {isPreRendered}, " +
-                  $"settings.cubeScale: {settings.cubeScale}, " +
-                  $"pitchScale: {pitchScale}, " +
-                  $"final scale: {scale}, " +
-                  $"pitch: {pitchData.frequency:F1}Hz");
         
         newCube.transform.localScale = scale;
         
@@ -413,24 +577,6 @@ public class PitchVisualizer : MonoBehaviour
         return Color.white;
     }
     
-    private void ActivateNativeCube(int index, PitchDataPoint pitchData)
-    {
-        if (preRenderedCubes == null || index < 0 || index >= preRenderedCubes.Count) return;
-        
-        var cube = preRenderedCubes[index];
-        if (cube == null) return;
-        
-        var renderer = cube.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            // Aktiviere mit voller Farbe und Helligkeit (but still dimmed compared to user)
-            Color activeColor = GetCubeColor(pitchData);
-            activeColor = Color.Lerp(activeColor, activeColor, settings.saturation); // Use track saturation
-            activeColor.a = 0.8f; // Semi-transparent to distinguish from user
-            renderer.material.color = activeColor;
-        }
-    }
-    
     private int FindIndexByTime(float playbackTime, List<PitchDataPoint> pitchDataList)
     {
         if (pitchDataList == null || pitchDataList.Count == 0) return 0;
@@ -456,22 +602,6 @@ public class PitchVisualizer : MonoBehaviour
             {
                 DestroyImmediate(oldCube);
             }
-        }
-    }
-    
-    private void UpdateCubePositions()
-    {
-        if (activeCubes == null) return;
-        
-        int index = 0;
-        foreach (GameObject cube in activeCubes)
-        {
-            if (cube != null)
-            {
-                Vector3 newPos = new Vector3(index * settings.cubeSpacing, cube.transform.localPosition.y, 0) + settings.trackOffset;
-                cube.transform.localPosition = newPos;
-            }
-            index++;
         }
     }
     
@@ -532,6 +662,13 @@ public class PitchVisualizer : MonoBehaviour
         
         ClearPreRenderedCubes();
         
+        // Clear focal indicator
+        if (focalIndicator != null)
+        {
+            DestroyImmediate(focalIndicator);
+            focalIndicator = null;
+        }
+        
         // Clear looping data
         originalNativePitchData = null;
         nativeClipDuration = 0f;
@@ -556,6 +693,8 @@ public class PitchVisualizer : MonoBehaviour
         
         settings = newSettings;
         ValidateSettings(); // Re-validate after update
+        UpdateFocalPoint(); // Recalculate focal point
+        CreateFocalIndicator(); // Recreate indicator
         
         Debug.Log($"[PitchVisualizer] {gameObject.name} UpdateSettings() completed - FINAL cubeScale: {settings.cubeScale}");
     }

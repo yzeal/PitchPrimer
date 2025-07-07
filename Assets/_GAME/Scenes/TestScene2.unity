@@ -706,6 +706,15 @@ MonoBehaviour:
     cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
+    focalPointTransform: {fileID: 1763168543}
+    showFocalIndicator: 1
+    focalIndicatorPrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
+    playedBrightness: 1
+    currentBrightness: 1.2
+    futureBrightness: 0.3
+    playedAlpha: 0.9
+    currentAlpha: 1
+    futureAlpha: 0.4
     pitchScaleMultiplier: 4
     minFrequency: 80
     maxFrequency: 800
@@ -1377,6 +1386,15 @@ MonoBehaviour:
     cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
+    focalPointTransform: {fileID: 0}
+    showFocalIndicator: 1
+    focalIndicatorPrefab: {fileID: 0}
+    playedBrightness: 1
+    currentBrightness: 1.2
+    futureBrightness: 0.3
+    playedAlpha: 0.9
+    currentAlpha: 1
+    futureAlpha: 0.4
     pitchScaleMultiplier: 4
     minFrequency: 80
     maxFrequency: 800
@@ -1717,6 +1735,15 @@ MonoBehaviour:
     cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
+    focalPointTransform: {fileID: 1763168543}
+    showFocalIndicator: 1
+    focalIndicatorPrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
+    playedBrightness: 1
+    currentBrightness: 1.2
+    futureBrightness: 0.3
+    playedAlpha: 0.9
+    currentAlpha: 1
+    futureAlpha: 0.4
     pitchScaleMultiplier: 4
     minFrequency: 80
     maxFrequency: 800
@@ -3027,6 +3054,37 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1634217329}
   m_CullTransparentMesh: 1
+--- !u!1 &1763168542
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1763168543}
+  m_Layer: 0
+  m_Name: FocalPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1763168543
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1763168542}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 12, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1863368360
 GameObject:
   m_ObjectHideFlags: 0
@@ -3573,3 +3631,4 @@ SceneRoots:
   - {fileID: 897609204}
   - {fileID: 270142239}
   - {fileID: 102657346}
+  - {fileID: 1763168543}
