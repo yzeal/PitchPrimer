@@ -189,98 +189,67 @@ public class PitchVisualizer : MonoBehaviour
     }
     
     /// <summary>
-    /// NEW: Looping synchronized scrolling + activation for native track
+    /// SIMPLE FIX: Force movement every frame regardless of data
     /// </summary>
     public void UpdateNativeTrackPlayback(float playbackTime, List<PitchDataPoint> pitchDataList)
     {
-        EnsureInitialization(); // Safety check
+        EnsureInitialization();
         
         if (preRenderedCubes == null || originalNativePitchData == null) return;
         
-        // Handle looping - wrap playback time to clip duration
+        // Handle looping
         float loopedPlaybackTime = nativeClipDuration > 0 ? playbackTime % nativeClipDuration : playbackTime;
         
-        // Find target index in original data (using looped time)
-        int targetIndex = FindIndexByTime(loopedPlaybackTime, originalNativePitchData);
+        // SIMPLE: Always move if enough time has passed
+        float deltaTime = loopedPlaybackTime - lastPlaybackTime;
+        if (deltaTime < 0) deltaTime += nativeClipDuration; // Handle loop wrap
         
-        // Only update when we move to a new analysis step
-        if (targetIndex != currentPlaybackIndex)
+        if (deltaTime >= settings.analysisInterval)
         {
-            // Handle looping: if targetIndex is smaller, we've looped
-            if (targetIndex < currentPlaybackIndex)
-            {
-                Debug.Log($"[PitchVisualizer] {gameObject.name} Audio looped! Resetting visualization. PlaybackTime: {playbackTime:F2}, LoopedTime: {loopedPlaybackTime:F2}");
-                HandleNativeLoop();
-            }
+            // Always move one step, regardless of data density
+            ScrollNativeCubesDiscrete(1);
             
-            // Calculate steps moved (handle wrapping)
-            int stepsMoved = targetIndex >= currentPlaybackIndex ? 
-                targetIndex - currentPlaybackIndex : 
-                1; // If we wrapped, just move one step
+            // Update cubes
+            AddSimpleNativeCube(loopedPlaybackTime);
+            RemoveOffscreenNativeCubes();
             
-            // Move all cubes left
-            ScrollNativeCubesDiscrete(stepsMoved);
+            // Activate current cube
+            int targetIndex = FindIndexByTime(loopedPlaybackTime, originalNativePitchData);
+            ActivateNativeCubeAtCurrentPosition(targetIndex);
             
-            // Add new cubes at the right edge and activate current cube
-            UpdateNativeCubesForNewStep(targetIndex, stepsMoved);
+            lastPlaybackTime = loopedPlaybackTime;
             
-            currentPlaybackIndex = targetIndex;
-            
-            Debug.Log($"[PitchVisualizer] {gameObject.name} Moved {stepsMoved} steps, now at index {targetIndex} (looped time: {loopedPlaybackTime:F2})");
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Simple move at time {loopedPlaybackTime:F2}");
         }
     }
     
-    // NEW: Handle when native audio loops
-    private void HandleNativeLoop()
-    {
-        // Reset the visible window start index
-        visibleCubeStartIndex = 0;
-        
-        // Recreate all cubes for the new loop
-        ClearPreRenderedCubes();
-        CreateInitialNativeWindow();
-        
-        currentPlaybackIndex = 0;
-    }
-    
-    // NEW: Update cubes for new playback step
-    private void UpdateNativeCubesForNewStep(int targetIndex, int stepsMoved)
+    // NEW: Add simple native cube
+    private void AddSimpleNativeCube(float loopedPlaybackTime)
     {
         if (originalNativePitchData == null) return;
         
-        // Add new cubes at the right edge for each step moved
-        for (int step = 0; step < stepsMoved; step++)
+        // Calculate which data index should appear at the right edge
+        int newDataIndex = (visibleCubeStartIndex + settings.maxCubes) % originalNativePitchData.Count;
+        var newPitchData = originalNativePitchData[newDataIndex];
+        
+        // Create new cube at the right edge
+        GameObject newCube = CreateCube(newPitchData, true, settings.maxCubes - 1);
+        if (newCube != null)
         {
-            // Calculate which data index should appear at the right edge
-            int newDataIndex = (visibleCubeStartIndex + settings.maxCubes + step) % originalNativePitchData.Count;
-            var newPitchData = originalNativePitchData[newDataIndex];
+            // Position at right edge
+            Vector3 pos = new Vector3((settings.maxCubes - 1) * settings.cubeSpacing, 0, 0) + settings.trackOffset;
+            newCube.transform.localPosition = pos;
             
-            // Create new cube at the right edge
-            GameObject newCube = CreateCube(newPitchData, true, settings.maxCubes - 1);
-            if (newCube != null)
-            {
-                // Position at right edge
-                Vector3 pos = new Vector3((settings.maxCubes - 1) * settings.cubeSpacing, 0, 0) + settings.trackOffset;
-                newCube.transform.localPosition = pos;
-                
-                preRenderedCubes.Add(newCube);
-                SetCubeInactive(newCube, newPitchData);
-                
-                Debug.Log($"[PitchVisualizer] {gameObject.name} Added new cube at right edge: dataIndex={newDataIndex}, pitch={newPitchData.frequency:F1}Hz");
-            }
+            preRenderedCubes.Add(newCube);
+            SetCubeInactive(newCube, newPitchData);
+            
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Added new cube at right edge: dataIndex={newDataIndex}, pitch={newPitchData.frequency:F1}Hz");
         }
         
         // Update visible window start index
-        visibleCubeStartIndex = (visibleCubeStartIndex + stepsMoved) % originalNativePitchData.Count;
-        
-        // Activate cube based on current playback position
-        ActivateNativeCubeAtCurrentPosition(targetIndex);
-        
-        // Remove cubes that scrolled off the left
-        RemoveOffscreenNativeCubes();
+        visibleCubeStartIndex = (visibleCubeStartIndex + 1) % originalNativePitchData.Count;
     }
     
-    // NEW: Activate cube at current playback position
     private void ActivateNativeCubeAtCurrentPosition(int targetIndex)
     {
         if (originalNativePitchData == null || targetIndex >= originalNativePitchData.Count) return;

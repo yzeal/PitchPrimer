@@ -703,7 +703,7 @@ MonoBehaviour:
     cubePrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
     cubeParent: {fileID: 453507923}
     cubeSpacing: 0.8
-    cubeScale: {x: 0.8, y: 1, z: 0.8}
+    cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
     pitchScaleMultiplier: 4
@@ -714,6 +714,7 @@ MonoBehaviour:
     useHSVColorMapping: 1
     saturation: 0.8
     brightness: 1
+    analysisInterval: 0.1
 --- !u!1 &521007459
 GameObject:
   m_ObjectHideFlags: 0
@@ -1384,6 +1385,7 @@ MonoBehaviour:
     useHSVColorMapping: 1
     saturation: 0.8
     brightness: 1
+    analysisInterval: 0.1
   showRuntimeInfo: 1
 --- !u!4 &897609204
 Transform:
@@ -1712,7 +1714,7 @@ MonoBehaviour:
     cubePrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
     cubeParent: {fileID: 1109803072}
     cubeSpacing: 0.8
-    cubeScale: {x: 0.8, y: 1, z: 0.8}
+    cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
     pitchScaleMultiplier: 4
@@ -1723,6 +1725,7 @@ MonoBehaviour:
     useHSVColorMapping: 1
     saturation: 0.5
     brightness: 0.7
+    analysisInterval: 0.1
 --- !u!4 &1109803072
 Transform:
   m_ObjectHideFlags: 0
