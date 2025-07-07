@@ -48,6 +48,11 @@ public class PitchVisualizer : MonoBehaviour
     private float lastPlaybackTime = 0f;
     private float nativeCubeOffset = 0f; // NEW: Track total scroll offset
     
+    // NEW: Variables for looping native track
+    private List<PitchDataPoint> originalNativePitchData; // Store original data for looping
+    private float nativeClipDuration = 0f; // Duration of native clip
+    private int visibleCubeStartIndex = 0; // Where the visible window starts in the data
+    
     // FIXED: Add Awake method to ensure initialization
     void Awake()
     {
@@ -117,7 +122,7 @@ public class PitchVisualizer : MonoBehaviour
     }
     
     /// <summary>
-    /// Pre-rendert alle Würfel für native Aufnahme (dunkel)
+    /// Pre-rendert initial window für looping native Aufnahme
     /// </summary>
     public void PreRenderNativeTrack(List<PitchDataPoint> pitchDataList)
     {
@@ -132,77 +137,175 @@ public class PitchVisualizer : MonoBehaviour
             return;
         }
         
+        // Store original data for looping
+        originalNativePitchData = new List<PitchDataPoint>(pitchDataList);
+        nativeClipDuration = pitchDataList.Count > 0 ? pitchDataList[pitchDataList.Count - 1].timestamp : 0f;
+        
         ClearPreRenderedCubes();
         
-        // Pre-render all cubes but initially invisible
-        for (int i = 0; i < pitchDataList.Count; i++)
+        // Pre-render initial visible window (maxCubes worth)
+        CreateInitialNativeWindow();
+        
+        currentPlaybackIndex = 0;
+        lastPlaybackTime = 0f;
+        nativeCubeOffset = 0f;
+        visibleCubeStartIndex = 0;
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Pre-rendered {preRenderedCubes.Count} cubes, clip duration: {nativeClipDuration}s");
+    }
+    
+    // NEW: Create initial window of native cubes
+    private void CreateInitialNativeWindow()
+    {
+        if (originalNativePitchData == null) return;
+        
+        // Create cubes for the visible window (maxCubes worth)
+        for (int i = 0; i < settings.maxCubes && i < originalNativePitchData.Count; i++)
         {
-            var pitchData = pitchDataList[i];
+            var pitchData = originalNativePitchData[i];
             GameObject cube = CreateCube(pitchData, true, i);
             
             if (cube != null)
             {
                 preRenderedCubes.Add(cube);
+                SetCubeInactive(cube, pitchData);
                 
-                // Initially invisible/inactive
-                var renderer = cube.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    Color cubeColor = GetCubeColor(pitchData);
-                    cubeColor = Color.Lerp(cubeColor, Color.gray, 0.8f); // Very dark
-                    cubeColor.a = 0.3f; // Very transparent
-                    renderer.material.color = cubeColor;
-                }
-                
-                Debug.Log($"[PitchVisualizer] {gameObject.name} Created pre-rendered cube {i}: pitch={pitchData.frequency:F1}Hz, pos={cube.transform.localPosition}");
-            }
-            else
-            {
-                Debug.LogWarning($"[PitchVisualizer] {gameObject.name} Failed to create cube {i}");
+                Debug.Log($"[PitchVisualizer] {gameObject.name} Created native cube {i}: pitch={pitchData.frequency:F1}Hz, pos={cube.transform.localPosition}");
             }
         }
-        
-        currentPlaybackIndex = 0;
-        lastPlaybackTime = 0f;
-        nativeCubeOffset = 0f; // Reset offset
-        Debug.Log($"[PitchVisualizer] {gameObject.name} Pre-rendered {preRenderedCubes.Count} cubes");
+    }
+    
+    // NEW: Set cube to inactive appearance
+    private void SetCubeInactive(GameObject cube, PitchDataPoint pitchData)
+    {
+        var renderer = cube.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            Color cubeColor = GetCubeColor(pitchData);
+            cubeColor = Color.Lerp(cubeColor, Color.gray, 0.8f); // Very dark
+            cubeColor.a = 0.3f; // Very transparent
+            renderer.material.color = cubeColor;
+        }
     }
     
     /// <summary>
-    /// FIXED: Synchronized discrete scrolling + activation for native track
+    /// NEW: Looping synchronized scrolling + activation for native track
     /// </summary>
     public void UpdateNativeTrackPlayback(float playbackTime, List<PitchDataPoint> pitchDataList)
     {
         EnsureInitialization(); // Safety check
         
-        if (preRenderedCubes == null || pitchDataList == null) return;
+        if (preRenderedCubes == null || originalNativePitchData == null) return;
         
-        // FIXED: Use discrete stepping instead of smooth scrolling
-        int targetIndex = FindIndexByTime(playbackTime, pitchDataList);
+        // Handle looping - wrap playback time to clip duration
+        float loopedPlaybackTime = nativeClipDuration > 0 ? playbackTime % nativeClipDuration : playbackTime;
+        
+        // Find target index in original data (using looped time)
+        int targetIndex = FindIndexByTime(loopedPlaybackTime, originalNativePitchData);
         
         // Only update when we move to a new analysis step
-        if (targetIndex > currentPlaybackIndex)
+        if (targetIndex != currentPlaybackIndex)
         {
-            // Calculate how many steps we've moved
-            int stepsMoved = targetIndex - currentPlaybackIndex;
+            // Handle looping: if targetIndex is smaller, we've looped
+            if (targetIndex < currentPlaybackIndex)
+            {
+                Debug.Log($"[PitchVisualizer] {gameObject.name} Audio looped! Resetting visualization. PlaybackTime: {playbackTime:F2}, LoopedTime: {loopedPlaybackTime:F2}");
+                HandleNativeLoop();
+            }
             
-            // Move all cubes left by the number of steps
+            // Calculate steps moved (handle wrapping)
+            int stepsMoved = targetIndex >= currentPlaybackIndex ? 
+                targetIndex - currentPlaybackIndex : 
+                1; // If we wrapped, just move one step
+            
+            // Move all cubes left
             ScrollNativeCubesDiscrete(stepsMoved);
             
-            // Activate new cubes
-            for (int i = currentPlaybackIndex; i <= targetIndex && i < preRenderedCubes.Count; i++)
-            {
-                ActivateNativeCube(i, pitchDataList[i]);
-            }
+            // Add new cubes at the right edge and activate current cube
+            UpdateNativeCubesForNewStep(targetIndex, stepsMoved);
             
             currentPlaybackIndex = targetIndex;
             
-            // Debug
-            Debug.Log($"[PitchVisualizer] {gameObject.name} Moved {stepsMoved} discrete steps, now at index {targetIndex}");
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Moved {stepsMoved} steps, now at index {targetIndex} (looped time: {loopedPlaybackTime:F2})");
+        }
+    }
+    
+    // NEW: Handle when native audio loops
+    private void HandleNativeLoop()
+    {
+        // Reset the visible window start index
+        visibleCubeStartIndex = 0;
+        
+        // Recreate all cubes for the new loop
+        ClearPreRenderedCubes();
+        CreateInitialNativeWindow();
+        
+        currentPlaybackIndex = 0;
+    }
+    
+    // NEW: Update cubes for new playback step
+    private void UpdateNativeCubesForNewStep(int targetIndex, int stepsMoved)
+    {
+        if (originalNativePitchData == null) return;
+        
+        // Add new cubes at the right edge for each step moved
+        for (int step = 0; step < stepsMoved; step++)
+        {
+            // Calculate which data index should appear at the right edge
+            int newDataIndex = (visibleCubeStartIndex + settings.maxCubes + step) % originalNativePitchData.Count;
+            var newPitchData = originalNativePitchData[newDataIndex];
+            
+            // Create new cube at the right edge
+            GameObject newCube = CreateCube(newPitchData, true, settings.maxCubes - 1);
+            if (newCube != null)
+            {
+                // Position at right edge
+                Vector3 pos = new Vector3((settings.maxCubes - 1) * settings.cubeSpacing, 0, 0) + settings.trackOffset;
+                newCube.transform.localPosition = pos;
+                
+                preRenderedCubes.Add(newCube);
+                SetCubeInactive(newCube, newPitchData);
+                
+                Debug.Log($"[PitchVisualizer] {gameObject.name} Added new cube at right edge: dataIndex={newDataIndex}, pitch={newPitchData.frequency:F1}Hz");
+            }
         }
         
-        // Remove old cubes that scrolled off-screen
+        // Update visible window start index
+        visibleCubeStartIndex = (visibleCubeStartIndex + stepsMoved) % originalNativePitchData.Count;
+        
+        // Activate cube based on current playback position
+        ActivateNativeCubeAtCurrentPosition(targetIndex);
+        
+        // Remove cubes that scrolled off the left
         RemoveOffscreenNativeCubes();
+    }
+    
+    // NEW: Activate cube at current playback position
+    private void ActivateNativeCubeAtCurrentPosition(int targetIndex)
+    {
+        if (originalNativePitchData == null || targetIndex >= originalNativePitchData.Count) return;
+        
+        var currentPitchData = originalNativePitchData[targetIndex];
+        
+        // Find which cube in the visible window corresponds to this playback position
+        // This is typically around the left side of the visible area (where activation happens)
+        int activationCubeIndex = 5; // Activate cube at position 5 (adjust as needed for visual preference)
+        
+        if (activationCubeIndex < preRenderedCubes.Count)
+        {
+            var cubeToActivate = preRenderedCubes[activationCubeIndex];
+            if (cubeToActivate != null)
+            {
+                var renderer = cubeToActivate.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    Color activeColor = GetCubeColor(currentPitchData);
+                    activeColor = Color.Lerp(activeColor, activeColor, settings.saturation);
+                    activeColor.a = 0.8f; // Semi-transparent to distinguish from user
+                    renderer.material.color = activeColor;
+                }
+            }
+        }
     }
     
     // NEW: Discrete stepping movement (like user cubes)
@@ -225,52 +328,6 @@ public class PitchVisualizer : MonoBehaviour
         Debug.Log($"[PitchVisualizer] {gameObject.name} Scrolled {steps} steps, distance: {scrollDistance}");
     }
     
-    // OLD method for comparison
-    private void ScrollNativeCubesLeft(float deltaTime)
-    {
-        if (preRenderedCubes == null) return;
-        
-        // Calculate scroll speed based on analysis interval
-        float scrollSpeed = settings.cubeSpacing / settings.analysisInterval; // FIXED: Use settings
-        float scrollDistance = scrollSpeed * deltaTime;
-        
-        foreach (var cube in preRenderedCubes)
-        {
-            if (cube != null)
-            {
-                Vector3 pos = cube.transform.localPosition;
-                pos.x -= scrollDistance;
-                cube.transform.localPosition = pos;
-            }
-        }
-    }
-    
-    // NEW: Add new native cube for longer recordings
-    private void AddNewNativeCube(PitchDataPoint pitchData, int index)
-    {
-        GameObject cube = CreateCube(pitchData, true, preRenderedCubes.Count);
-        
-        if (cube != null)
-        {
-            preRenderedCubes.Add(cube);
-            
-            // Position at the right edge
-            Vector3 pos = cube.transform.localPosition;
-            pos.x = (settings.maxCubes - 1) * settings.cubeSpacing;
-            cube.transform.localPosition = pos + settings.trackOffset;
-            
-            // Start inactive
-            var renderer = cube.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                Color cubeColor = GetCubeColor(pitchData);
-                cubeColor = Color.Lerp(cubeColor, Color.gray, 0.8f);
-                cubeColor.a = 0.3f;
-                renderer.material.color = cubeColor;
-            }
-        }
-    }
-    
     // NEW: Remove cubes that scrolled off the left side
     private void RemoveOffscreenNativeCubes()
     {
@@ -283,6 +340,7 @@ public class PitchVisualizer : MonoBehaviour
             {
                 DestroyImmediate(cube);
                 preRenderedCubes.RemoveAt(i);
+                Debug.Log($"[PitchVisualizer] {gameObject.name} Removed offscreen cube at index {i}");
             }
         }
     }
@@ -303,7 +361,7 @@ public class PitchVisualizer : MonoBehaviour
         float xPosition;
         if (isPreRendered)
         {
-            // Native cubes: spread them out initially based on their timestamp
+            // Native cubes: spread them out initially based on their index
             xPosition = index * settings.cubeSpacing;
         }
         else
@@ -446,6 +504,7 @@ public class PitchVisualizer : MonoBehaviour
         currentPlaybackIndex = 0;
         lastPlaybackTime = 0f;
         nativeCubeOffset = 0f; // Reset offset
+        visibleCubeStartIndex = 0;
     }
     
     private void ValidateSettings()
@@ -479,6 +538,10 @@ public class PitchVisualizer : MonoBehaviour
         }
         
         ClearPreRenderedCubes();
+        
+        // Clear looping data
+        originalNativePitchData = null;
+        nativeClipDuration = 0f;
     }
     
     void OnDestroy()
