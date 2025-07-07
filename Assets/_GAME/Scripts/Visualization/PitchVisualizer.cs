@@ -30,6 +30,9 @@ public class VisualizationSettings
     public bool useHSVColorMapping = true;
     public float saturation = 0.8f;
     public float brightness = 1f;
+    
+    [Header("Synchronization")]
+    public float analysisInterval = 0.1f; // ADDED: For scroll speed calculation
 }
 
 public class PitchVisualizer : MonoBehaviour
@@ -39,6 +42,11 @@ public class PitchVisualizer : MonoBehaviour
     private Queue<GameObject> activeCubes;
     private List<GameObject> preRenderedCubes; // Für native Aufnahmen
     private int currentPlaybackIndex = 0;
+    
+    // NEW: Variables for synchronized scrolling
+    private bool isNativeTrack = false;
+    private float lastPlaybackTime = 0f;
+    private float nativeCubeOffset = 0f; // NEW: Track total scroll offset
     
     // FIXED: Add Awake method to ensure initialization
     void Awake()
@@ -78,6 +86,20 @@ public class PitchVisualizer : MonoBehaviour
         Debug.Log($"[PitchVisualizer] {gameObject.name} manually initialized with settings");
     }
     
+    // NEW: Set track type for different behavior
+    public void SetAsNativeTrack(bool isNative)
+    {
+        isNativeTrack = isNative;
+        Debug.Log($"[PitchVisualizer] {gameObject.name} set as native track: {isNative}");
+    }
+    
+    // NEW: Set analysis interval for synchronized scrolling
+    public void SetAnalysisInterval(float interval)
+    {
+        settings.analysisInterval = interval;
+        Debug.Log($"[PitchVisualizer] {gameObject.name} analysis interval set to: {interval}");
+    }
+    
     /// <summary>
     /// Für Real-Time Mikrofonaufnahme
     /// </summary>
@@ -100,6 +122,7 @@ public class PitchVisualizer : MonoBehaviour
     public void PreRenderNativeTrack(List<PitchDataPoint> pitchDataList)
     {
         EnsureInitialization(); // CRITICAL: Ensure initialization before use
+        isNativeTrack = true; // Mark as native track
         
         Debug.Log($"[PitchVisualizer] {gameObject.name} PreRenderNativeTrack called with {pitchDataList?.Count ?? 0} data points");
         
@@ -111,7 +134,8 @@ public class PitchVisualizer : MonoBehaviour
         
         ClearPreRenderedCubes();
         
-        for (int i = 0; i < pitchDataList.Count && i < settings.maxCubes; i++)
+        // Pre-render all cubes but initially invisible
+        for (int i = 0; i < pitchDataList.Count; i++)
         {
             var pitchData = pitchDataList[i];
             GameObject cube = CreateCube(pitchData, true, i);
@@ -120,13 +144,13 @@ public class PitchVisualizer : MonoBehaviour
             {
                 preRenderedCubes.Add(cube);
                 
-                // Dunklere, inaktive Darstellung
+                // Initially invisible/inactive
                 var renderer = cube.GetComponent<Renderer>();
                 if (renderer != null)
                 {
                     Color cubeColor = GetCubeColor(pitchData);
-                    cubeColor = Color.Lerp(cubeColor, Color.gray, 0.7f); // Dunkler
-                    cubeColor.a = 0.5f; // Transparent
+                    cubeColor = Color.Lerp(cubeColor, Color.gray, 0.8f); // Very dark
+                    cubeColor.a = 0.3f; // Very transparent
                     renderer.material.color = cubeColor;
                 }
                 
@@ -139,11 +163,13 @@ public class PitchVisualizer : MonoBehaviour
         }
         
         currentPlaybackIndex = 0;
+        lastPlaybackTime = 0f;
+        nativeCubeOffset = 0f; // Reset offset
         Debug.Log($"[PitchVisualizer] {gameObject.name} Pre-rendered {preRenderedCubes.Count} cubes");
     }
     
     /// <summary>
-    /// Aktiviert native Würfel synchron zum Playback
+    /// FIXED: Synchronized discrete scrolling + activation for native track
     /// </summary>
     public void UpdateNativeTrackPlayback(float playbackTime, List<PitchDataPoint> pitchDataList)
     {
@@ -151,16 +177,114 @@ public class PitchVisualizer : MonoBehaviour
         
         if (preRenderedCubes == null || pitchDataList == null) return;
         
-        // Finde aktuellen Index basierend auf Playback-Zeit
+        // FIXED: Use discrete stepping instead of smooth scrolling
         int targetIndex = FindIndexByTime(playbackTime, pitchDataList);
         
-        // Aktiviere Würfel bis zum aktuellen Index
-        for (int i = currentPlaybackIndex; i <= targetIndex && i < preRenderedCubes.Count; i++)
+        // Only update when we move to a new analysis step
+        if (targetIndex > currentPlaybackIndex)
         {
-            ActivateNativeCube(i, pitchDataList[i]);
+            // Calculate how many steps we've moved
+            int stepsMoved = targetIndex - currentPlaybackIndex;
+            
+            // Move all cubes left by the number of steps
+            ScrollNativeCubesDiscrete(stepsMoved);
+            
+            // Activate new cubes
+            for (int i = currentPlaybackIndex; i <= targetIndex && i < preRenderedCubes.Count; i++)
+            {
+                ActivateNativeCube(i, pitchDataList[i]);
+            }
+            
+            currentPlaybackIndex = targetIndex;
+            
+            // Debug
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Moved {stepsMoved} discrete steps, now at index {targetIndex}");
         }
         
-        currentPlaybackIndex = Mathf.Max(currentPlaybackIndex, targetIndex);
+        // Remove old cubes that scrolled off-screen
+        RemoveOffscreenNativeCubes();
+    }
+    
+    // NEW: Discrete stepping movement (like user cubes)
+    private void ScrollNativeCubesDiscrete(int steps)
+    {
+        if (preRenderedCubes == null || steps <= 0) return;
+        
+        float scrollDistance = steps * settings.cubeSpacing;
+        
+        foreach (var cube in preRenderedCubes)
+        {
+            if (cube != null)
+            {
+                Vector3 pos = cube.transform.localPosition;
+                pos.x -= scrollDistance;
+                cube.transform.localPosition = pos;
+            }
+        }
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Scrolled {steps} steps, distance: {scrollDistance}");
+    }
+    
+    // OLD method for comparison
+    private void ScrollNativeCubesLeft(float deltaTime)
+    {
+        if (preRenderedCubes == null) return;
+        
+        // Calculate scroll speed based on analysis interval
+        float scrollSpeed = settings.cubeSpacing / settings.analysisInterval; // FIXED: Use settings
+        float scrollDistance = scrollSpeed * deltaTime;
+        
+        foreach (var cube in preRenderedCubes)
+        {
+            if (cube != null)
+            {
+                Vector3 pos = cube.transform.localPosition;
+                pos.x -= scrollDistance;
+                cube.transform.localPosition = pos;
+            }
+        }
+    }
+    
+    // NEW: Add new native cube for longer recordings
+    private void AddNewNativeCube(PitchDataPoint pitchData, int index)
+    {
+        GameObject cube = CreateCube(pitchData, true, preRenderedCubes.Count);
+        
+        if (cube != null)
+        {
+            preRenderedCubes.Add(cube);
+            
+            // Position at the right edge
+            Vector3 pos = cube.transform.localPosition;
+            pos.x = (settings.maxCubes - 1) * settings.cubeSpacing;
+            cube.transform.localPosition = pos + settings.trackOffset;
+            
+            // Start inactive
+            var renderer = cube.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                Color cubeColor = GetCubeColor(pitchData);
+                cubeColor = Color.Lerp(cubeColor, Color.gray, 0.8f);
+                cubeColor.a = 0.3f;
+                renderer.material.color = cubeColor;
+            }
+        }
+    }
+    
+    // NEW: Remove cubes that scrolled off the left side
+    private void RemoveOffscreenNativeCubes()
+    {
+        if (preRenderedCubes == null) return;
+        
+        for (int i = preRenderedCubes.Count - 1; i >= 0; i--)
+        {
+            var cube = preRenderedCubes[i];
+            if (cube != null && cube.transform.localPosition.x < -settings.cubeSpacing)
+            {
+                DestroyImmediate(cube);
+                preRenderedCubes.RemoveAt(i);
+            }
+        }
     }
     
     // FIXED: Return type changed from void to GameObject
@@ -176,7 +300,18 @@ public class PitchVisualizer : MonoBehaviour
         newCube.SetActive(true);
         
         // Position
-        float xPosition = isPreRendered ? index * settings.cubeSpacing : (activeCubes?.Count ?? 0) * settings.cubeSpacing;
+        float xPosition;
+        if (isPreRendered)
+        {
+            // Native cubes: spread them out initially based on their timestamp
+            xPosition = index * settings.cubeSpacing;
+        }
+        else
+        {
+            // User cubes: position based on queue count
+            xPosition = (activeCubes?.Count ?? 0) * settings.cubeSpacing;
+        }
+        
         Vector3 position = new Vector3(xPosition, 0, 0) + settings.trackOffset;
         newCube.transform.localPosition = position;
         
@@ -237,9 +372,10 @@ public class PitchVisualizer : MonoBehaviour
         var renderer = cube.GetComponent<Renderer>();
         if (renderer != null)
         {
-            // Aktiviere mit voller Farbe und Helligkeit
+            // Aktiviere mit voller Farbe und Helligkeit (but still dimmed compared to user)
             Color activeColor = GetCubeColor(pitchData);
-            activeColor.a = 1f;
+            activeColor = Color.Lerp(activeColor, activeColor, settings.saturation); // Use track saturation
+            activeColor.a = 0.8f; // Semi-transparent to distinguish from user
             renderer.material.color = activeColor;
         }
     }
@@ -281,7 +417,7 @@ public class PitchVisualizer : MonoBehaviour
         {
             if (cube != null)
             {
-                Vector3 newPos = new Vector3(index * settings.cubeSpacing, cube.transform.localPosition.y, 0);
+                Vector3 newPos = new Vector3(index * settings.cubeSpacing, cube.transform.localPosition.y, 0) + settings.trackOffset;
                 cube.transform.localPosition = newPos;
             }
             index++;
@@ -307,6 +443,9 @@ public class PitchVisualizer : MonoBehaviour
             }
         }
         preRenderedCubes.Clear();
+        currentPlaybackIndex = 0;
+        lastPlaybackTime = 0f;
+        nativeCubeOffset = 0f; // Reset offset
     }
     
     private void ValidateSettings()
