@@ -40,13 +40,42 @@ public class PitchVisualizer : MonoBehaviour
     private List<GameObject> preRenderedCubes; // Für native Aufnahmen
     private int currentPlaybackIndex = 0;
     
+    // FIXED: Add Awake method to ensure initialization
+    void Awake()
+    {
+        EnsureInitialization();
+    }
+    
+    // FIXED: Add Start method as fallback
+    void Start()
+    {
+        EnsureInitialization();
+    }
+    
+    // ADDED: Safe initialization method
+    private void EnsureInitialization()
+    {
+        if (activeCubes == null)
+        {
+            activeCubes = new Queue<GameObject>();
+        }
+        
+        if (preRenderedCubes == null)
+        {
+            preRenderedCubes = new List<GameObject>();
+        }
+        
+        ValidateSettings();
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name} initialized - activeCubes: {activeCubes != null}, preRenderedCubes: {preRenderedCubes != null}");
+    }
+    
     public void Initialize(VisualizationSettings visualSettings)
     {
         settings = visualSettings;
-        activeCubes = new Queue<GameObject>();
-        preRenderedCubes = new List<GameObject>();
+        EnsureInitialization(); // Use safe initialization
         
-        ValidateSettings();
+        Debug.Log($"[PitchVisualizer] {gameObject.name} manually initialized with settings");
     }
     
     /// <summary>
@@ -54,6 +83,8 @@ public class PitchVisualizer : MonoBehaviour
     /// </summary>
     public void AddRealtimePitchData(PitchDataPoint pitchData)
     {
+        EnsureInitialization(); // Safety check
+        
         GameObject cube = CreateCube(pitchData, false);
         if (cube != null)
         {
@@ -68,6 +99,16 @@ public class PitchVisualizer : MonoBehaviour
     /// </summary>
     public void PreRenderNativeTrack(List<PitchDataPoint> pitchDataList)
     {
+        EnsureInitialization(); // CRITICAL: Ensure initialization before use
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name} PreRenderNativeTrack called with {pitchDataList?.Count ?? 0} data points");
+        
+        if (pitchDataList == null || pitchDataList.Count == 0)
+        {
+            Debug.LogWarning($"[PitchVisualizer] {gameObject.name} - No pitch data to pre-render");
+            return;
+        }
+        
         ClearPreRenderedCubes();
         
         for (int i = 0; i < pitchDataList.Count && i < settings.maxCubes; i++)
@@ -88,10 +129,17 @@ public class PitchVisualizer : MonoBehaviour
                     cubeColor.a = 0.5f; // Transparent
                     renderer.material.color = cubeColor;
                 }
+                
+                Debug.Log($"[PitchVisualizer] {gameObject.name} Created pre-rendered cube {i}: pitch={pitchData.frequency:F1}Hz, pos={cube.transform.localPosition}");
+            }
+            else
+            {
+                Debug.LogWarning($"[PitchVisualizer] {gameObject.name} Failed to create cube {i}");
             }
         }
         
         currentPlaybackIndex = 0;
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Pre-rendered {preRenderedCubes.Count} cubes");
     }
     
     /// <summary>
@@ -99,6 +147,10 @@ public class PitchVisualizer : MonoBehaviour
     /// </summary>
     public void UpdateNativeTrackPlayback(float playbackTime, List<PitchDataPoint> pitchDataList)
     {
+        EnsureInitialization(); // Safety check
+        
+        if (preRenderedCubes == null || pitchDataList == null) return;
+        
         // Finde aktuellen Index basierend auf Playback-Zeit
         int targetIndex = FindIndexByTime(playbackTime, pitchDataList);
         
@@ -115,13 +167,16 @@ public class PitchVisualizer : MonoBehaviour
     private GameObject CreateCube(PitchDataPoint pitchData, bool isPreRendered, int index = -1)
     {
         if (settings.cubePrefab == null || settings.cubeParent == null) 
+        {
+            Debug.LogError($"[PitchVisualizer] {gameObject.name} - Missing cubePrefab or cubeParent!");
             return null;
+        }
         
         GameObject newCube = Instantiate(settings.cubePrefab, settings.cubeParent);
         newCube.SetActive(true);
         
         // Position
-        float xPosition = isPreRendered ? index * settings.cubeSpacing : activeCubes.Count * settings.cubeSpacing;
+        float xPosition = isPreRendered ? index * settings.cubeSpacing : (activeCubes?.Count ?? 0) * settings.cubeSpacing;
         Vector3 position = new Vector3(xPosition, 0, 0) + settings.trackOffset;
         newCube.transform.localPosition = position;
         
@@ -174,23 +229,25 @@ public class PitchVisualizer : MonoBehaviour
     
     private void ActivateNativeCube(int index, PitchDataPoint pitchData)
     {
-        if (index >= 0 && index < preRenderedCubes.Count)
+        if (preRenderedCubes == null || index < 0 || index >= preRenderedCubes.Count) return;
+        
+        var cube = preRenderedCubes[index];
+        if (cube == null) return;
+        
+        var renderer = cube.GetComponent<Renderer>();
+        if (renderer != null)
         {
-            var cube = preRenderedCubes[index];
-            var renderer = cube.GetComponent<Renderer>();
-            
-            if (renderer != null)
-            {
-                // Aktiviere mit voller Farbe und Helligkeit
-                Color activeColor = GetCubeColor(pitchData);
-                activeColor.a = 1f;
-                renderer.material.color = activeColor;
-            }
+            // Aktiviere mit voller Farbe und Helligkeit
+            Color activeColor = GetCubeColor(pitchData);
+            activeColor.a = 1f;
+            renderer.material.color = activeColor;
         }
     }
     
     private int FindIndexByTime(float playbackTime, List<PitchDataPoint> pitchDataList)
     {
+        if (pitchDataList == null || pitchDataList.Count == 0) return 0;
+        
         for (int i = 0; i < pitchDataList.Count; i++)
         {
             if (pitchDataList[i].timestamp > playbackTime)
@@ -203,6 +260,8 @@ public class PitchVisualizer : MonoBehaviour
     
     private void MaintainCubeCount()
     {
+        if (activeCubes == null) return;
+        
         while (activeCubes.Count > settings.maxCubes)
         {
             GameObject oldCube = activeCubes.Dequeue();
@@ -215,6 +274,8 @@ public class PitchVisualizer : MonoBehaviour
     
     private void UpdateCubePositions()
     {
+        if (activeCubes == null) return;
+        
         int index = 0;
         foreach (GameObject cube in activeCubes)
         {
@@ -229,6 +290,15 @@ public class PitchVisualizer : MonoBehaviour
     
     private void ClearPreRenderedCubes()
     {
+        // FIXED: Add null check
+        if (preRenderedCubes == null) 
+        {
+            Debug.LogWarning($"[PitchVisualizer] {gameObject.name} - preRenderedCubes is null in ClearPreRenderedCubes");
+            return;
+        }
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Clearing {preRenderedCubes.Count} pre-rendered cubes");
+        
         foreach (var cube in preRenderedCubes)
         {
             if (cube != null)
@@ -245,23 +315,28 @@ public class PitchVisualizer : MonoBehaviour
         {
             settings.cubePrefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
             settings.cubePrefab.SetActive(false);
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Created default cube prefab");
         }
         
         if (settings.cubeParent == null)
         {
             GameObject parent = new GameObject("PitchVisualization");
             settings.cubeParent = parent.transform;
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Created default cube parent");
         }
     }
     
     public void ClearAll()
     {
-        if(activeCubes == null) return;
-
-        while (activeCubes.Count > 0)
+        Debug.Log($"[PitchVisualizer] {gameObject.name} ClearAll called");
+        
+        if (activeCubes != null)
         {
-            GameObject cube = activeCubes.Dequeue();
-            if (cube != null) DestroyImmediate(cube);
+            while (activeCubes.Count > 0)
+            {
+                GameObject cube = activeCubes.Dequeue();
+                if (cube != null) DestroyImmediate(cube);
+            }
         }
         
         ClearPreRenderedCubes();

@@ -1439,7 +1439,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 8, y: -8}
-  m_SizeDelta: {x: 200.422, y: 30}
+  m_SizeDelta: {x: 354.6603, y: 30}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1087946798
 MonoBehaviour:
@@ -1714,7 +1714,7 @@ MonoBehaviour:
     cubeSpacing: 0.8
     cubeScale: {x: 0.8, y: 1, z: 0.8}
     maxCubes: 30
-    trackOffset: {x: 0, y: 0, z: 2}
+    trackOffset: {x: 0, y: 0, z: 0}
     pitchScaleMultiplier: 4
     minFrequency: 80
     maxFrequency: 800
@@ -1732,7 +1732,7 @@ Transform:
   m_GameObject: {fileID: 1109803070}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 2}
+  m_LocalPosition: {x: 0, y: 0, z: 0.8}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3324,7 +3324,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 219.7, y: -8}
+  m_AnchoredPosition: {x: 403, y: -8}
   m_SizeDelta: {x: 160, y: 30}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1975296230
