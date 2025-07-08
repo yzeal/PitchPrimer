@@ -461,6 +461,19 @@ public class PitchVisualizer : MonoBehaviour
                 SetNativeCubeState(cube, i, 0, i);
             }
         }
+        
+        // NEW: Debug log for native recording pitch range
+        var pitchesWithFreq = originalNativePitchData.Where(p => p.HasPitch).Select(p => p.frequency);
+        if (pitchesWithFreq.Any())
+        {
+            float minNativePitch = pitchesWithFreq.Min();
+            float maxNativePitch = pitchesWithFreq.Max();
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Native recording pitch range: {minNativePitch:F1}-{maxNativePitch:F1}Hz (Personal range: {settings.pitchRange.personalMinPitch:F0}-{settings.pitchRange.personalMaxPitch:F0}Hz)");
+        }
+        else
+        {
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Native recording contains no pitched audio");
+        }
     }
     
     public void UpdateNativeTrackPlayback(float playbackTime, List<PitchDataPoint> pitchDataList)
