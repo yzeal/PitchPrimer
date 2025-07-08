@@ -707,8 +707,8 @@ MonoBehaviour:
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
     focalPointTransform: {fileID: 1763168543}
-    showFocalIndicator: 1
-    focalIndicatorPrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
+    showFocalIndicator: 0
+    focalIndicatorPrefab: {fileID: 5357262997562138383, guid: f2b8e73c309667a4c93a4b6bdb04ae27, type: 3}
     playedBrightness: 1
     currentBrightness: 1.2
     futureBrightness: 0.3
@@ -1737,7 +1737,7 @@ MonoBehaviour:
     trackOffset: {x: 0, y: 0, z: 0}
     focalPointTransform: {fileID: 1763168543}
     showFocalIndicator: 1
-    focalIndicatorPrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
+    focalIndicatorPrefab: {fileID: 5357262997562138383, guid: f2b8e73c309667a4c93a4b6bdb04ae27, type: 3}
     playedBrightness: 1
     currentBrightness: 1.2
     futureBrightness: 0.3
@@ -1825,7 +1825,7 @@ MonoBehaviour:
     historySize: 10
     useSmoothing: 1
     enableDebugLogging: 1
-  nativeClip: {fileID: 8300000, guid: 9dd45b490be55a24ebb78efb7948a619, type: 3}
+  nativeClip: {fileID: 8300000, guid: 3aac1fc8744a3f848a1d5634728a9f0b, type: 3}
   analysisInterval: 0.1
   autoLoop: 1
   enableDebugLogging: 0
@@ -2691,7 +2691,7 @@ MonoBehaviour:
   deviceName: 
   minAudioLevel: 0.001
   enableNoiseGate: 1
-  noiseGateMultiplier: 1
+  noiseGateMultiplier: 3
   ambientCalibrationTime: 2
   ambientSamplePercentage: 0.7
   enableDebugLogging: 0
