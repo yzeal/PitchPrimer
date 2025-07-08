@@ -709,13 +709,20 @@ MonoBehaviour:
     focalPointTransform: {fileID: 1763168543}
     showFocalIndicator: 0
     focalIndicatorPrefab: {fileID: 5357262997562138383, guid: f2b8e73c309667a4c93a4b6bdb04ae27, type: 3}
+    pitchRange:
+      personalMinPitch: 100
+      personalMaxPitch: 300
+      minCubeHeight: 0.1
+      maxCubeHeight: 5
+      outOfRangeMode: 0
+      outOfRangeColor: {r: 1, g: 0, b: 0, a: 1}
+      showRangeDebug: 0
     playedBrightness: 1
     currentBrightness: 1.2
     futureBrightness: 0.3
     playedAlpha: 0.9
     currentAlpha: 1
     futureAlpha: 0.4
-    pitchScaleMultiplier: 4
     minFrequency: 80
     maxFrequency: 800
     silenceCubeHeight: 0.05
@@ -1389,13 +1396,20 @@ MonoBehaviour:
     focalPointTransform: {fileID: 0}
     showFocalIndicator: 1
     focalIndicatorPrefab: {fileID: 0}
+    pitchRange:
+      personalMinPitch: 100
+      personalMaxPitch: 300
+      minCubeHeight: 0.1
+      maxCubeHeight: 5
+      outOfRangeMode: 0
+      outOfRangeColor: {r: 1, g: 0, b: 0, a: 1}
+      showRangeDebug: 0
     playedBrightness: 1
     currentBrightness: 1.2
     futureBrightness: 0.3
     playedAlpha: 0.9
     currentAlpha: 1
     futureAlpha: 0.4
-    pitchScaleMultiplier: 4
     minFrequency: 80
     maxFrequency: 800
     silenceCubeHeight: 0.05
@@ -1738,13 +1752,20 @@ MonoBehaviour:
     focalPointTransform: {fileID: 1763168543}
     showFocalIndicator: 1
     focalIndicatorPrefab: {fileID: 5357262997562138383, guid: f2b8e73c309667a4c93a4b6bdb04ae27, type: 3}
+    pitchRange:
+      personalMinPitch: 100
+      personalMaxPitch: 300
+      minCubeHeight: 0.1
+      maxCubeHeight: 5
+      outOfRangeMode: 0
+      outOfRangeColor: {r: 1, g: 0, b: 0, a: 1}
+      showRangeDebug: 0
     playedBrightness: 1
     currentBrightness: 1.2
     futureBrightness: 0.3
     playedAlpha: 0.9
     currentAlpha: 1
     futureAlpha: 0.4
-    pitchScaleMultiplier: 4
     minFrequency: 80
     maxFrequency: 800
     silenceCubeHeight: 0.05
@@ -1825,7 +1846,7 @@ MonoBehaviour:
     historySize: 10
     useSmoothing: 1
     enableDebugLogging: 1
-  nativeClip: {fileID: 8300000, guid: 3aac1fc8744a3f848a1d5634728a9f0b, type: 3}
+  nativeClip: {fileID: 8300000, guid: 9dd45b490be55a24ebb78efb7948a619, type: 3}
   analysisInterval: 0.1
   autoLoop: 1
   enableDebugLogging: 0
