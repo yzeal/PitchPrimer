@@ -444,8 +444,6 @@ public class PitchVisualizer : MonoBehaviour
     {
         if (originalNativePitchData == null) return;
         
-        int focalIndex = GetFocalCubeIndex();
-        
         for (int i = 0; i < settings.maxCubes && i < originalNativePitchData.Count; i++)
         {
             var pitchData = originalNativePitchData[i];
@@ -453,16 +451,26 @@ public class PitchVisualizer : MonoBehaviour
             
             if (cube != null)
             {
-                float cubeX = focalIndex * settings.cubeSpacing + (i - focalIndex) * settings.cubeSpacing;
+                // FIXED: Position cubes so that cube 0 (timestamp=0) is AT the focal point
+                // Future cubes (i > 0) go to the RIGHT of focal point
+                float cubeX = focalPointLocalX + (i * settings.cubeSpacing);
                 Vector3 pos = new Vector3(cubeX, 0, 0) + settings.trackOffset;
                 cube.transform.localPosition = pos;
                 
                 preRenderedCubes.Add(cube);
                 SetNativeCubeState(cube, i, 0, i);
+                
+                // Debug first few cubes
+                if (i < 5)
+                {
+                    Debug.Log($"[PitchVisualizer] {gameObject.name} Native cube {i}: pitch={pitchData.frequency:F1}Hz, pos=({pos.x:F2}, {pos.y:F2}), focalPoint={focalPointLocalX:F2}");
+                }
             }
         }
         
-        // NEW: Debug log for native recording pitch range
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Initial native window created - Cube 0 (timestamp=0) at focal point {focalPointLocalX:F2}");
+        
+        // Debug log for native recording pitch range
         var pitchesWithFreq = originalNativePitchData.Where(p => p.HasPitch).Select(p => p.frequency);
         if (pitchesWithFreq.Any())
         {
@@ -607,11 +615,21 @@ public class PitchVisualizer : MonoBehaviour
         GameObject newCube = CreateCube(newPitchData, true, settings.maxCubes - 1);
         if (newCube != null)
         {
-            Vector3 pos = new Vector3((settings.maxCubes - 1) * settings.cubeSpacing, 0, 0) + settings.trackOffset;
+            // FIXED: Calculate proper right edge position based on current cube count
+            // For short audio, this ensures proper spacing without gaps
+            int currentCubeCount = Mathf.Min(settings.maxCubes, originalNativePitchData.Count);
+            float rightEdgeX = focalPointLocalX + ((currentCubeCount - 1) * settings.cubeSpacing);
+            Vector3 pos = new Vector3(rightEdgeX, 0, 0) + settings.trackOffset;
             newCube.transform.localPosition = pos;
             
             preRenderedCubes.Add(newCube);
             SetNativeCubeState(newCube, settings.maxCubes - 1, currentPlaybackIndex, newDataIndex);
+            
+            // Debug for short audio
+            if (originalNativePitchData.Count < settings.maxCubes)
+            {
+                Debug.Log($"[PitchVisualizer] {gameObject.name} Short audio: Adding cube at dataIndex={newDataIndex}, pos={pos.x:F2}, cubeCount={currentCubeCount}");
+            }
         }
         
         visibleCubeStartIndex = (visibleCubeStartIndex + 1) % originalNativePitchData.Count;
@@ -640,9 +658,13 @@ public class PitchVisualizer : MonoBehaviour
         GameObject newCube = Instantiate(settings.cubePrefab, settings.cubeParent);
         newCube.SetActive(true);
         
-        float xPosition = isPreRendered ? index * settings.cubeSpacing : focalPointLocalX;
-        Vector3 position = new Vector3(xPosition, 0, 0) + settings.trackOffset;
-        newCube.transform.localPosition = position;
+        // FIXED: Only position user cubes automatically, pre-rendered cubes are positioned by caller
+        if (!isPreRendered)
+        {
+            Vector3 position = new Vector3(focalPointLocalX, 0, 0) + settings.trackOffset;
+            newCube.transform.localPosition = position;
+        }
+        // Pre-rendered cubes will be positioned by CreateInitialNativeWindow() or AddSimpleNativeCube()
         
         float pitchScale = CalculatePitchScale(pitchData);
         Vector3 scale = settings.cubeScale;
