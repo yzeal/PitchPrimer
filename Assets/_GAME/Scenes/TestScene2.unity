@@ -1846,7 +1846,7 @@ MonoBehaviour:
     historySize: 10
     useSmoothing: 1
     enableDebugLogging: 1
-  nativeClip: {fileID: 8300000, guid: f75c3204e26cbe942b5cc23116cee9b4, type: 3}
+  nativeClip: {fileID: 8300000, guid: 2032675219f1d9641a7f02911190f844, type: 3}
   analysisInterval: 0.1
   autoLoop: 1
   enableDebugLogging: 0
