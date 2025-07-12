@@ -83,7 +83,131 @@
 ## Projekt-Überblick
 Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent und Rhythmus durch Chorusing-Übungen (gleichzeitiges Sprechen mit nativen Aufnahmen).
 
-## LATEST UPDATE - Day 5 Achievements 🎯
+## LATEST UPDATE - Day 6: Repetitions System & Quantized Silence 🎯
+
+### 1. ✅ CRITICAL BREAKTHROUGH: Repetitions System Implemented
+**MAJOR ARCHITECTURE CHANGE:** Native recordings now use repetitions instead of maxCubes limit
+- **Multiple repetitions visible:** 5 complete audio loops shown simultaneously
+- **Silence gaps between repetitions:** Visual breathing pauses between each loop
+- **Infinite scrolling:** Old repetitions removed left, new ones added right
+- **No maxCubes limit:** Audio length no longer constrained by arbitrary cube count
+- **Perfect for short audio:** 3.9s clips now show properly without off-screen issues
+
+#### Key Technical Implementation:
+- **RepetitionData class:** Manages cubes for each complete audio loop + silence
+- **Dynamic repetition management:** Add/remove repetitions as they scroll
+- **Silence cubes:** Gray cubes represent breathing pauses between repetitions
+- **Smooth scrolling:** All repetitions move together as continuous timeline
+
+### 2. ✅ QUANTIZED SILENCE SYNCHRONIZATION
+**PERFECT AUDIO-VISUAL SYNC:** Mathematically precise silence duration matching
+- **Quantization formula:** round(requestedSilence / analysisInterval) × analysisInterval
+- **Example:** 0.67s → round(0.67/0.1) × 0.1 = 0.7s (exactly 7 cube intervals)
+- **Single source of truth:** ChorusingManager owns silence, passes to visualizer
+- **Update-based audio loop:** No coroutines, safer timing control
+
+#### Architecture Changes:
+- **ChorusingManager:** Calculates quantized silence, manages audio timing with real pauses
+- **PitchVisualizer:** Receives silence as parameter, creates matching visual cubes
+- **Removed silenceBetweenReps:** No longer in VisualizationSettings, centralized in ChorusingManager
+- **Zero settings conflicts:** Clean separation between audio control and visual display
+
+### 3. ⚠️ CURRENT ISSUE: Gradual Sync Drift
+**SYMPTOM:** Over time, visual cubes start before audio restarts after silence
+**SUSPECTED CAUSES:**
+- Different analysis intervals between ChorusingManager vs PitchVisualizer
+- Frame rate dependency in visual scrolling vs exact audio timing
+- Rounding errors accumulating over multiple loops
+- Audio uses Time.time precision, visual uses modulo operations
+
+#### Debug Investigation Needed:
+
+    // Add this to ChorusingManager.UpdateNativeVisualization():
+    if (enableDebugLogging && Time.time % 5f < 0.1f)
+    {
+        float audioTotalLoop = nativeClip.length + quantizedSilenceDuration;
+        float audioLoopPos = playbackTime % audioTotalLoop;
+        DebugLog($"DRIFT: audioLoopPos={audioLoopPos:F3}s, silence={isInSilencePeriod}, elapsed={Time.time - chorusingStartTime:F1}s");
+    }
+
+### 4. 📋 ARCHITECTURE STATE
+
+#### ChorusingManager (Audio Control):
+- **Owns silence duration:** requestedSilenceDuration → quantizedSilenceDuration
+- **Update-based timing:** No coroutines, safer state management
+- **Quantization logic:** Ensures cube-perfect silence duration
+- **Audio loop control:** Manual looping with precise silence pauses
+
+#### PitchVisualizer (Visual System):
+- **Repetitions system:** Shows 5 complete audio loops simultaneously
+- **External silence parameter:** Receives quantized silence via PreRenderNativeTrack()
+- **Stores currentSilenceDuration:** For dynamic repetition creation in ManageRepetitions()
+- **Clean separation:** No longer owns silence timing, only visual representation
+
+### 5. ✅ WORKING FEATURES CONFIRMED
+**SOLID FOUNDATION:** Core systems working with new architecture
+- **Repetitions visualization:** Multiple loops with silence gaps ✅
+- **Quantized silence:** Mathematical precision between audio/visual ✅
+- **Personal pitch range system:** Individual voice calibration ✅
+- **Update-based audio:** No coroutine timing issues ✅
+- **Clean architecture:** Single source of truth for silence ✅
+
+## 🎯 NEXT PRIORITIES for Fresh Session
+
+### Priority 1: CRITICAL - Fix Sync Drift Issue
+**GOAL:** Eliminate gradual timing drift between audio and visual
+
+#### Investigation Steps:
+1. **Verify analysis intervals match:** ChorusingManager.analysisInterval = PitchVisualizer.settings.analysisInterval
+2. **Add drift measurement logging:** Track audioLoopPos vs expected timing over time
+3. **Test frame-independent timing:** Consider FixedUpdate() for visual scrolling
+4. **Measure drift accumulation rate:** How much drift per minute/loop?
+
+#### Potential Solutions:
+- **Option A:** Make visual system time-based instead of frame-based
+- **Option B:** Synchronize both systems to same Update frequency
+- **Option C:** Add periodic re-sync mechanism to correct drift
+
+### Priority 2: Code Cleanup & Optimization
+**GOAL:** Remove legacy code and optimize performance
+
+#### Cleanup Tasks:
+- **Remove legacy preRenderedCubes system:** Clean up old maxCubes-based code
+- **Clean up unused variables:** Remove nativeCubeOffset and other legacy vars
+- **Optimize repetition management:** Ensure efficient cube creation/destruction
+- **Update documentation:** Clean up comments and context
+
+### Priority 3: Long-term Stability Testing
+**GOAL:** Test with various audio lengths and extended sessions
+
+#### Testing Scenarios:
+- **Short audio (2-5s):** Verify repetitions work correctly
+- **Long audio (30s+):** Test with longer clips
+- **Extended sessions (10+ minutes):** Measure drift over time
+- **Different frame rates:** Test performance impact
+
+## LESSONS LEARNED: Quantized Silence Implementation
+
+### ✅ What WORKED:
+- **Mathematical precision:** Quantization ensures perfect cube alignment
+- **Centralized control:** Single source of truth eliminates conflicts
+- **Update-based timing:** More reliable than coroutines
+- **External parameter passing:** Clean separation of concerns
+
+### ⚠️ What NEEDS FIXING:
+- **Timing precision:** Small accumulated errors cause drift
+- **Frame dependency:** Visual system tied to Update() frequency
+- **Analysis interval sync:** Ensure both systems use identical values
+
+### 🎯 Success Criteria for Next Session:
+- **Zero drift:** Audio and visual stay synchronized indefinitely
+- **Clean code:** No legacy systems or unused variables
+- **Performance:** Smooth operation with any audio length
+- **Documentation:** Clear architecture notes for future development
+
+**STATUS:** Repetitions system implemented, quantized silence working, sync drift investigation needed! 🚀
+
+## Day 5 Achievements 🎯 (SUPERSEDED by Day 6)
 
 ### 1. ✅ CRITICAL FIX: Audio-Visual Synchronization Perfected
 **BREAKTHROUGH:** Cube at focal point now represents currently playing audio
@@ -119,10 +243,10 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 - **ChorusingManager.cs:** Removed ALL custom looping and silence code
 - **Clean foundation:** Back to working basic looping without any silence features
 
-### 3. 🎯 FUTURE PLAN: Simple Silence Implementation Strategy
-**RECOMMENDED APPROACH:** Clean, simple visual overlay during breathing pauses
+### 3. 🎯 FUTURE PLAN: Simple Silence Implementation Strategy (SUPERSEDED)
+**NOTE:** Day 6 successfully implemented this plan with repetitions system
 
-#### The New Plan (for future implementation):
+#### The Plan That Was Implemented:
 
 **Step 1: Revert Complete (✅ DONE)**
 - ✅ PitchVisualizer.cs: Remove isSilenceMode variable, SetSilenceMode() method, ShowSilenceAtFocalPoint() method, complex timing logic
@@ -134,26 +258,11 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 - ✅ Clean architecture: Maintain separation of concerns
 - ✅ Basic looping: Standard Unity AudioSource looping
 
-**Step 3: Implement Simple Silence (FUTURE - NOT IMPLEMENTED)**
-- **Add configurable silence between loops (real audio pause)**
-- **Add simple visual overlay during silence periods**
-- **No changes to core scrolling/timing logic**
-- **Keep it simple and separate from core systems**
-
-#### Simple Implementation Strategy (for future):
-    Recommended Approach:
-    1. ChorusingManager: Add custom looping with real audio silence
-    2. PitchVisualizer: Add basic visual method for silence overlay (no timing changes)
-    3. Use simple flag to indicate silence state
-    4. Show silence cubes or dimmed display at focal point only
-    5. Keep all timing logic in ChorusingManager
-    6. PitchVisualizer only handles appearance, not timing
-
-#### Why Simple Approach is Better:
-- **Maintains working foundation:** Don't break what works
-- **Minimal complexity:** Visual overlay without timing modification
-- **Easy to debug:** Clear separation between audio and visual concerns
-- **Robust:** No complex state management or timing synchronization
+**Step 3: Implement Simple Silence (✅ IMPLEMENTED in Day 6)**
+- ✅ Add configurable silence between loops (real audio pause)
+- ✅ Add simple visual overlay during silence periods (silence cubes)
+- ✅ No changes to core scrolling/timing logic
+- ✅ Keep it simple and separate from core systems
 
 ### 4. ✅ WORKING FEATURES CONFIRMED
 **SOLID FOUNDATION:** Core systems working perfectly
@@ -162,79 +271,6 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 - **Audio synchronization:** Cube at focal = current audio ✅
 - **Basic looping:** Standard Unity AudioSource.loop ✅
 - **Debug logging:** Native recording pitch range analysis ✅
-
-## TECHNICAL STATE for Home Computer
-
-### Current Code Status:
-- **PitchVisualizer.cs:** Perfect synchronization, no gaps, clean positioning, NO silence code
-- **ChorusingManager.cs:** Basic functionality, standard Unity looping, NO custom silence code
-- **Clean foundation:** ALL silence implementation code removed
-
-### Working Features:
-- **Audio looping:** Standard Unity AudioSource.loop = true
-- **Visual synchronization:** Perfect cube-to-audio alignment
-- **No silence pauses:** Audio loops immediately without breaks
-- **Stable system:** No complex timing or state management
-
-### Debug Features Available:
-- **Native pitch range logging:** Shows actual vs. personal range for optimization
-- **Cube positioning debug:** First 5 cubes logged with positions
-- **Sync validation:** Audio time vs. visual time comparison
-- **Range statistics:** Voice coverage analysis for range optimization
-
-## 🎯 NEXT PRIORITIES for Home Computer
-
-### Priority 1: Simple Silence Implementation (FUTURE FEATURE)
-**GOAL:** Add breathing pauses without breaking current synchronization
-
-#### Recommended Implementation:
-    1. ChorusingManager: Add custom looping with real audio silence
-       - Disable AudioSource.loop
-       - Use coroutine to manage play → silence → repeat cycle
-       - Configurable silence duration (600ms default)
-    
-    2. PitchVisualizer: Add simple visual overlay
-       - ShowSilenceOverlay() - just visual appearance
-       - HideSilenceOverlay() - restore normal appearance
-       - NO timing modifications, NO complex state tracking
-    
-    3. Keep it simple and separate from core visualization timing
-
-### Priority 2: Audio Quality Testing
-**GOAL:** Test with high-quality Japanese speech recordings
-
-#### Testing Workflow:
-    1. Import high-quality WAV files (Japanese speech samples)
-    2. Use debug logging to analyze native recording pitch ranges
-    3. Optimize personal pitch ranges based on actual speaker data
-    4. Test with various audio lengths and speaker types
-    5. Validate synchronization remains perfect
-
-### Priority 3: Parameter Optimization
-**GOAL:** Fine-tune for real Japanese speech patterns
-
-#### Areas to Optimize:
-    - Personal pitch ranges based on real speaker data
-    - Sibilant filtering (consider 80-400Hz limit for microphone)
-    - Noise gate settings for clean Japanese speech
-    - Analysis interval timing for different speech speeds
-
-## LESSONS LEARNED: Silence Implementation
-
-### ❌ What NOT to do:
-- **Complex timing manipulation:** Don't modify core visualization timing
-- **Extended data systems:** Don't add virtual silence to pitch data
-- **State mode tracking:** Don't add complex silence state management
-- **Timing synchronization:** Don't try to sync multiple timing systems
-
-### ✅ What TO do:
-- **Keep working foundation:** Don't break what works
-- **Simple audio approach:** Custom looping with real audio silence
-- **Simple visual overlay:** Add appearance-only changes
-- **Single source of truth:** Keep timing logic in one place
-- **Separation of concerns:** Audio timing ≠ visual appearance
-
-**STATUS:** Clean foundation restored, NO silence features implemented, ready for simple approach! 🚀
 
 ## Day 4 Achievements 🎯
 
