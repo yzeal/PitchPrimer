@@ -706,6 +706,7 @@ MonoBehaviour:
     cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
+    nativeRepetitions: 5
     focalPointTransform: {fileID: 1763168543}
     showFocalIndicator: 0
     focalIndicatorPrefab: {fileID: 5357262997562138383, guid: f2b8e73c309667a4c93a4b6bdb04ae27, type: 3}
@@ -1393,6 +1394,7 @@ MonoBehaviour:
     cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
+    nativeRepetitions: 5
     focalPointTransform: {fileID: 0}
     showFocalIndicator: 1
     focalIndicatorPrefab: {fileID: 0}
@@ -1749,6 +1751,7 @@ MonoBehaviour:
     cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
+    nativeRepetitions: 5
     focalPointTransform: {fileID: 1763168543}
     showFocalIndicator: 1
     focalIndicatorPrefab: {fileID: 5357262997562138383, guid: f2b8e73c309667a4c93a4b6bdb04ae27, type: 3}
@@ -1846,9 +1849,11 @@ MonoBehaviour:
     historySize: 10
     useSmoothing: 1
     enableDebugLogging: 1
-  nativeClip: {fileID: 8300000, guid: 2032675219f1d9641a7f02911190f844, type: 3}
+  nativeClip: {fileID: 8300000, guid: 72c1dc44a3f3adc43addb5d17cbeaebe, type: 3}
   analysisInterval: 0.1
   autoLoop: 1
+  requestedSilenceDuration: 0.6
+  quantizedSilenceDuration: 0
   enableDebugLogging: 0
 --- !u!1 &1285873726
 GameObject:

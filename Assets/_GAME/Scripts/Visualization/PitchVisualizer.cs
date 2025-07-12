@@ -59,8 +59,6 @@ public class VisualizationSettings
     [Header("Native Track Repetitions")]
     [Tooltip("Number of clip repetitions visible at once (3-10)")]
     public int nativeRepetitions = 5;
-    [Tooltip("Silence duration between repetitions (seconds)")]
-    public float silenceBetweenReps = 0.6f;
     
     [Header("Focal Point System")]
     public Transform focalPointTransform;
@@ -123,6 +121,7 @@ public class PitchVisualizer : MonoBehaviour
     private List<RepetitionData> activeRepetitions = new List<RepetitionData>();
     private float repetitionTotalLength; // Audio + Silence duration
     private float scrollSpeed; // Cubes per interval
+    private float currentSilenceDuration = 0.6f; // Default fallback
     
     // Statistics for debugging (NO automatic adaptation)
     private List<float> observedPitches = new List<float>();
@@ -471,7 +470,7 @@ public class PitchVisualizer : MonoBehaviour
         }
     }
     
-    public void PreRenderNativeTrack(List<PitchDataPoint> pitchDataList)
+    public void PreRenderNativeTrack(List<PitchDataPoint> pitchDataList, float silenceDuration = 0.6f)
     {
         EnsureInitialization();
         isNativeTrack = true;
@@ -482,25 +481,28 @@ public class PitchVisualizer : MonoBehaviour
             return;
         }
         
+        currentSilenceDuration = silenceDuration;
+        
         originalNativePitchData = new List<PitchDataPoint>(pitchDataList);
         nativeClipDuration = pitchDataList.Count > 0 ? pitchDataList[pitchDataList.Count - 1].timestamp : 0f;
         
-        // Calculate repetition metrics
-        float silenceCubes = settings.silenceBetweenReps / settings.analysisInterval;
+        // FIXED: Use externally provided silence duration
+        float silenceCubes = silenceDuration / settings.analysisInterval;
         repetitionTotalLength = (originalNativePitchData.Count + silenceCubes) * settings.cubeSpacing;
         scrollSpeed = settings.cubeSpacing / settings.analysisInterval;
         
-        Debug.Log($"[PitchVisualizer] {gameObject.name} NEW REPETITIONS SYSTEM:");
+        Debug.Log($"[PitchVisualizer] {gameObject.name} REPETITIONS SYSTEM:");
         Debug.Log($"  Audio cubes: {originalNativePitchData.Count}, Silence cubes: {silenceCubes:F0}");
+        Debug.Log($"  Silence duration: {silenceDuration:F3}s (external)");
         Debug.Log($"  Repetition length: {repetitionTotalLength:F1} units, Total repetitions: {settings.nativeRepetitions}");
         
         ClearNativeRepetitions();
-        CreateInitialRepetitions();
+        CreateInitialRepetitions(silenceDuration);
         
         lastPlaybackTime = 0f;
     }
     
-    private void CreateInitialRepetitions()
+    private void CreateInitialRepetitions(float silenceDuration)
     {
         if (originalNativePitchData == null) return;
         
@@ -510,17 +512,17 @@ public class PitchVisualizer : MonoBehaviour
         for (int rep = 0; rep < settings.nativeRepetitions; rep++)
         {
             float repStartPos = focalPointLocalX + (rep * repetitionTotalLength);
-            CreateSingleRepetition(repStartPos, rep);
+            CreateSingleRepetition(repStartPos, rep, silenceDuration);
         }
         
         Debug.Log($"[PitchVisualizer] {gameObject.name} Created {activeRepetitions.Count} initial repetitions");
     }
     
-    private void CreateSingleRepetition(float startPosition, int repetitionIndex)
+    private void CreateSingleRepetition(float startPosition, int repetitionIndex, float silenceDuration)
     {
         var repetition = new RepetitionData(startPosition, repetitionIndex);
         
-        // Create audio cubes
+        // Create audio cubes (unchanged)
         for (int i = 0; i < originalNativePitchData.Count; i++)
         {
             var pitchData = originalNativePitchData[i];
@@ -537,11 +539,11 @@ public class PitchVisualizer : MonoBehaviour
             }
         }
         
-        // Create silence cubes
-        int silenceCubeCount = Mathf.RoundToInt(settings.silenceBetweenReps / settings.analysisInterval);
+        // FIXED: Create silence cubes using external silence duration
+        int silenceCubeCount = Mathf.RoundToInt(silenceDuration / settings.analysisInterval);
         for (int s = 0; s < silenceCubeCount; s++)
         {
-            var silencePitchData = new PitchDataPoint(0f, 0f, 0f, 0f); // Silence data
+            var silencePitchData = new PitchDataPoint(0f, 0f, 0f, 0f);
             GameObject silenceCube = CreateCube(silencePitchData, true, -1);
             
             if (silenceCube != null)
@@ -555,11 +557,6 @@ public class PitchVisualizer : MonoBehaviour
         }
         
         activeRepetitions.Add(repetition);
-        
-        if (repetitionIndex < 2) // Debug first few
-        {
-            Debug.Log($"[PitchVisualizer] {gameObject.name} Created repetition {repetitionIndex}: {repetition.cubes.Count} cubes at pos {startPosition:F1}");
-        }
     }
     
     public void UpdateNativeTrackPlayback(float playbackTime, List<PitchDataPoint> pitchDataList)
@@ -634,7 +631,7 @@ public class PitchVisualizer : MonoBehaviour
             int newRepIndex = activeRepetitions.Count > 0 ? 
                 activeRepetitions[activeRepetitions.Count - 1].repetitionIndex + 1 : 0;
                 
-            CreateSingleRepetition(lastRepEndPos, newRepIndex);
+            CreateSingleRepetition(lastRepEndPos, newRepIndex, currentSilenceDuration);
             
             Debug.Log($"[PitchVisualizer] {gameObject.name} Added repetition {newRepIndex} at pos {lastRepEndPos:F1}");
         }

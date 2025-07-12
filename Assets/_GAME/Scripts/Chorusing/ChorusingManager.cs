@@ -22,6 +22,12 @@ public class ChorusingManager : MonoBehaviour
     [SerializeField] private float analysisInterval = 0.1f;
     [SerializeField] private bool autoLoop = true;
 
+    [Header("Native Recording Silence")]
+    [Tooltip("Requested silence duration between native recording loops (seconds)")]
+    [SerializeField] private float requestedSilenceDuration = 0.6f;
+    [Tooltip("Actual silence duration (quantized to analysis intervals)")]
+    [SerializeField] private float quantizedSilenceDuration = 0f; // Read-only, calculated
+
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogging = false;
 
@@ -33,7 +39,6 @@ public class ChorusingManager : MonoBehaviour
     private bool isInSilencePeriod = false;
     private float silenceStartTime = 0f;
     private float lastLoopEndTime = 0f;
-    private float quantizedSilenceDuration = 0f; // Calculated once
 
     void Start()
     {
@@ -84,10 +89,10 @@ public class ChorusingManager : MonoBehaviour
             DebugLog($"Audio started, will end at: {lastLoopEndTime:F2}s (current: {Time.time:F2}s)");
         }
 
-        // Pre-render native visualization
+        // Pre-render native visualization with quantized silence
         if (nativeVisualizer != null)
         {
-            nativeVisualizer.PreRenderNativeTrack(nativePitchData);
+            nativeVisualizer.PreRenderNativeTrack(nativePitchData, quantizedSilenceDuration);
         }
 
         isChorusingActive = true;
@@ -96,33 +101,36 @@ public class ChorusingManager : MonoBehaviour
         DebugLog($"Chorusing started with quantized silence: {quantizedSilenceDuration:F3}s");
     }
 
-    // NEW: Calculate silence duration that perfectly matches visual cubes
+    // FIXED: Calculate silence duration without touching visualizer settings
     private void CalculateQuantizedSilence()
     {
-        var visualSettings = GetNativeVisualizationSettings();
-        if (visualSettings == null)
-        {
-            quantizedSilenceDuration = 0.6f; // Fallback
-            DebugLog("Warning: No visual settings, using fallback silence");
-            return;
-        }
-
-        float requestedSilence = visualSettings.silenceBetweenReps;
-        float currentAnalysisInterval = analysisInterval; // Use our analysis interval
-        
         // QUANTIZE: Round to nearest multiple of analysis interval
-        int silenceIntervals = Mathf.RoundToInt(requestedSilence / currentAnalysisInterval);
-        quantizedSilenceDuration = silenceIntervals * currentAnalysisInterval;
-        
-        // SYNC: Update visualizer to use our quantized value
-        visualSettings.silenceBetweenReps = quantizedSilenceDuration;
+        int silenceIntervals = Mathf.RoundToInt(requestedSilenceDuration / analysisInterval);
+        quantizedSilenceDuration = silenceIntervals * analysisInterval;
         
         DebugLog($"QUANTIZED SILENCE CALCULATION:");
-        DebugLog($"  Requested: {requestedSilence:F3}s");
-        DebugLog($"  Analysis interval: {currentAnalysisInterval:F3}s");
+        DebugLog($"  Requested: {requestedSilenceDuration:F3}s");
+        DebugLog($"  Analysis interval: {analysisInterval:F3}s");
         DebugLog($"  Silence intervals: {silenceIntervals}");
         DebugLog($"  Quantized silence: {quantizedSilenceDuration:F3}s");
         DebugLog($"  Visual cubes: {silenceIntervals} silence cubes");
+        
+        // REMOVED: No longer needed - visualizer gets silence as parameter
+        // OLD CODE: settings.silenceBetweenReps = quantizedSilenceDuration;
+        
+        DebugLog($"Quantized silence calculated: {quantizedSilenceDuration:F3}s");
+    }
+
+    // NEW: Public method to change silence at runtime
+    public void SetSilenceDuration(float newSilenceDuration)
+    {
+        requestedSilenceDuration = newSilenceDuration;
+        
+        if (isChorusingActive)
+        {
+            CalculateQuantizedSilence();
+            DebugLog($"Silence updated during playback to: {quantizedSilenceDuration:F3}s");
+        }
     }
 
     // NEW: Update-based quantized silence logic
