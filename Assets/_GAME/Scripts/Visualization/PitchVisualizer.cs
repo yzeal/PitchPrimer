@@ -53,8 +53,14 @@ public class VisualizationSettings
     public Vector3 cubeScale = new Vector3(0.8f, 1f, 0.1f);
     
     [Header("Layout")]
-    public int maxCubes = 30;
+    public int maxCubes = 30; // Only used for User Recording
     public Vector3 trackOffset = Vector3.zero;
+    
+    [Header("Native Track Repetitions")]
+    [Tooltip("Number of clip repetitions visible at once (3-10)")]
+    public int nativeRepetitions = 5;
+    [Tooltip("Silence duration between repetitions (seconds)")]
+    public float silenceBetweenReps = 0.6f;
     
     [Header("Focal Point System")]
     public Transform focalPointTransform;
@@ -89,27 +95,52 @@ public class VisualizationSettings
     public float analysisInterval = 0.1f;
 }
 
+// NEW: Repetition data structure
+[System.Serializable]
+public class RepetitionData
+{
+    public List<GameObject> cubes = new List<GameObject>();
+    public float startPosition;
+    public int repetitionIndex;
+    public bool isInSilencePeriod;
+    
+    public RepetitionData(float startPos, int repIndex)
+    {
+        startPosition = startPos;
+        repetitionIndex = repIndex;
+        isInSilencePeriod = false;
+    }
+}
+
 public class PitchVisualizer : MonoBehaviour
 {
     [SerializeField] private VisualizationSettings settings;
     
+    // User Recording (unchanged)
     private Queue<GameObject> activeCubes;
-    private List<GameObject> preRenderedCubes;
-    private int currentPlaybackIndex = 0;
+    
+    // Native Recording - NEW SYSTEM
+    private List<RepetitionData> activeRepetitions = new List<RepetitionData>();
+    private float repetitionTotalLength; // Audio + Silence duration
+    private float scrollSpeed; // Cubes per interval
     
     // Statistics for debugging (NO automatic adaptation)
     private List<float> observedPitches = new List<float>();
     private int cubeCreationCount = 0;
     
-    // Existing variables
+    // Existing variables (mostly unchanged)
     private bool isNativeTrack = false;
     private float lastPlaybackTime = 0f;
-    private float nativeCubeOffset = 0f;
     private List<PitchDataPoint> originalNativePitchData;
     private float nativeClipDuration = 0f;
-    private int visibleCubeStartIndex = 0;
     private GameObject focalIndicator;
     private float focalPointLocalX = 0f;
+    
+    // FIXED: Add missing variable for legacy compatibility
+    private int currentPlaybackIndex = 0;
+    
+    // LEGACY: Remove these after testing (keep for now to avoid errors)
+    private List<GameObject> preRenderedCubes; // Keep for transition
     
     private enum CubeState
     {
@@ -317,6 +348,21 @@ public class PitchVisualizer : MonoBehaviour
         ValidateSettings();
     }
     
+    private void ValidateSettings()
+    {
+        if (settings.cubePrefab == null)
+        {
+            settings.cubePrefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            settings.cubePrefab.SetActive(false);
+        }
+        
+        if (settings.cubeParent == null)
+        {
+            GameObject parent = new GameObject("PitchVisualization");
+            settings.cubeParent = parent.transform;
+        }
+    }
+    
     private void UpdateFocalPoint()
     {
         if (settings.focalPointTransform != null && settings.cubeParent != null)
@@ -326,7 +372,15 @@ public class PitchVisualizer : MonoBehaviour
         }
         else
         {
-            focalPointLocalX = (settings.maxCubes * settings.cubeSpacing) * 0.4f;
+            // FIXED: For repetitions system, use a fixed focal point
+            if (isNativeTrack)
+            {
+                focalPointLocalX = 12f; // Fixed position for native tracks
+            }
+            else
+            {
+                focalPointLocalX = (settings.maxCubes * settings.cubeSpacing) * 0.4f; // User tracks
+            }
         }
     }
     
@@ -431,56 +485,80 @@ public class PitchVisualizer : MonoBehaviour
         originalNativePitchData = new List<PitchDataPoint>(pitchDataList);
         nativeClipDuration = pitchDataList.Count > 0 ? pitchDataList[pitchDataList.Count - 1].timestamp : 0f;
         
-        ClearPreRenderedCubes();
-        CreateInitialNativeWindow();
+        // Calculate repetition metrics
+        float silenceCubes = settings.silenceBetweenReps / settings.analysisInterval;
+        repetitionTotalLength = (originalNativePitchData.Count + silenceCubes) * settings.cubeSpacing;
+        scrollSpeed = settings.cubeSpacing / settings.analysisInterval;
         
-        currentPlaybackIndex = 0;
+        Debug.Log($"[PitchVisualizer] {gameObject.name} NEW REPETITIONS SYSTEM:");
+        Debug.Log($"  Audio cubes: {originalNativePitchData.Count}, Silence cubes: {silenceCubes:F0}");
+        Debug.Log($"  Repetition length: {repetitionTotalLength:F1} units, Total repetitions: {settings.nativeRepetitions}");
+        
+        ClearNativeRepetitions();
+        CreateInitialRepetitions();
+        
         lastPlaybackTime = 0f;
-        nativeCubeOffset = 0f;
-        visibleCubeStartIndex = 0;
     }
     
-    private void CreateInitialNativeWindow()
+    private void CreateInitialRepetitions()
     {
         if (originalNativePitchData == null) return;
         
-        for (int i = 0; i < settings.maxCubes && i < originalNativePitchData.Count; i++)
+        activeRepetitions.Clear();
+        
+        // Create initial repetitions spanning the visible area
+        for (int rep = 0; rep < settings.nativeRepetitions; rep++)
+        {
+            float repStartPos = focalPointLocalX + (rep * repetitionTotalLength);
+            CreateSingleRepetition(repStartPos, rep);
+        }
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Created {activeRepetitions.Count} initial repetitions");
+    }
+    
+    private void CreateSingleRepetition(float startPosition, int repetitionIndex)
+    {
+        var repetition = new RepetitionData(startPosition, repetitionIndex);
+        
+        // Create audio cubes
+        for (int i = 0; i < originalNativePitchData.Count; i++)
         {
             var pitchData = originalNativePitchData[i];
             GameObject cube = CreateCube(pitchData, true, i);
             
             if (cube != null)
             {
-                // FIXED: Position cubes so that cube 0 (timestamp=0) is AT the focal point
-                // Future cubes (i > 0) go to the RIGHT of focal point
-                float cubeX = focalPointLocalX + (i * settings.cubeSpacing);
+                float cubeX = startPosition + (i * settings.cubeSpacing);
                 Vector3 pos = new Vector3(cubeX, 0, 0) + settings.trackOffset;
                 cube.transform.localPosition = pos;
                 
-                preRenderedCubes.Add(cube);
+                repetition.cubes.Add(cube);
                 SetNativeCubeState(cube, i, 0, i);
-                
-                // Debug first few cubes
-                if (i < 5)
-                {
-                    Debug.Log($"[PitchVisualizer] {gameObject.name} Native cube {i}: pitch={pitchData.frequency:F1}Hz, pos=({pos.x:F2}, {pos.y:F2}), focalPoint={focalPointLocalX:F2}");
-                }
             }
         }
         
-        Debug.Log($"[PitchVisualizer] {gameObject.name} Initial native window created - Cube 0 (timestamp=0) at focal point {focalPointLocalX:F2}");
-        
-        // Debug log for native recording pitch range
-        var pitchesWithFreq = originalNativePitchData.Where(p => p.HasPitch).Select(p => p.frequency);
-        if (pitchesWithFreq.Any())
+        // Create silence cubes
+        int silenceCubeCount = Mathf.RoundToInt(settings.silenceBetweenReps / settings.analysisInterval);
+        for (int s = 0; s < silenceCubeCount; s++)
         {
-            float minNativePitch = pitchesWithFreq.Min();
-            float maxNativePitch = pitchesWithFreq.Max();
-            Debug.Log($"[PitchVisualizer] {gameObject.name} Native recording pitch range: {minNativePitch:F1}-{maxNativePitch:F1}Hz (Personal range: {settings.pitchRange.personalMinPitch:F0}-{settings.pitchRange.personalMaxPitch:F0}Hz)");
+            var silencePitchData = new PitchDataPoint(0f, 0f, 0f, 0f); // Silence data
+            GameObject silenceCube = CreateCube(silencePitchData, true, -1);
+            
+            if (silenceCube != null)
+            {
+                float cubeX = startPosition + ((originalNativePitchData.Count + s) * settings.cubeSpacing);
+                Vector3 pos = new Vector3(cubeX, 0, 0) + settings.trackOffset;
+                silenceCube.transform.localPosition = pos;
+                
+                repetition.cubes.Add(silenceCube);
+            }
         }
-        else
+        
+        activeRepetitions.Add(repetition);
+        
+        if (repetitionIndex < 2) // Debug first few
         {
-            Debug.Log($"[PitchVisualizer] {gameObject.name} Native recording contains no pitched audio");
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Created repetition {repetitionIndex}: {repetition.cubes.Count} cubes at pos {startPosition:F1}");
         }
     }
     
@@ -488,7 +566,7 @@ public class PitchVisualizer : MonoBehaviour
     {
         EnsureInitialization();
         
-        if (preRenderedCubes == null || originalNativePitchData == null) return;
+        if (activeRepetitions == null || originalNativePitchData == null) return;
         
         float loopedPlaybackTime = nativeClipDuration > 0 ? playbackTime % nativeClipDuration : playbackTime;
         
@@ -497,46 +575,101 @@ public class PitchVisualizer : MonoBehaviour
         
         if (deltaTime >= settings.analysisInterval)
         {
-            ScrollNativeCubesDiscrete(1);
-            AddSimpleNativeCube(loopedPlaybackTime);
-            RemoveOffscreenNativeCubes();
-            
-            int targetIndex = FindIndexByTime(loopedPlaybackTime, originalNativePitchData);
-            UpdateAllNativeCubeStates(targetIndex);
+            ScrollAllRepetitions();
+            ManageRepetitions();
+            UpdateAllRepetitionStates(loopedPlaybackTime);
             
             lastPlaybackTime = loopedPlaybackTime;
         }
     }
     
-    private void UpdateAllNativeCubeStates(int currentPlaybackIndex)
+    private void ScrollAllRepetitions()
+    {
+        float scrollDistance = settings.cubeSpacing;
+        
+        foreach (var repetition in activeRepetitions)
+        {
+            repetition.startPosition -= scrollDistance;
+            
+            foreach (var cube in repetition.cubes)
+            {
+                if (cube != null)
+                {
+                    Vector3 pos = cube.transform.localPosition;
+                    pos.x -= scrollDistance;
+                    cube.transform.localPosition = pos;
+                }
+            }
+        }
+    }
+    
+    private void ManageRepetitions()
+    {
+        // Remove repetitions that scrolled off-screen (left side)
+        float removeThreshold = focalPointLocalX - repetitionTotalLength;
+        
+        for (int i = activeRepetitions.Count - 1; i >= 0; i--)
+        {
+            var rep = activeRepetitions[i];
+            if (rep.startPosition < removeThreshold)
+            {
+                // Destroy all cubes in this repetition
+                foreach (var cube in rep.cubes)
+                {
+                    if (cube != null) DestroyImmediate(cube);
+                }
+                activeRepetitions.RemoveAt(i);
+                
+                Debug.Log($"[PitchVisualizer] {gameObject.name} Removed repetition {rep.repetitionIndex} at pos {rep.startPosition:F1}");
+            }
+        }
+        
+        // Add new repetitions on the right side if needed
+        while (activeRepetitions.Count < settings.nativeRepetitions)
+        {
+            float lastRepEndPos = activeRepetitions.Count > 0 ? 
+                activeRepetitions[activeRepetitions.Count - 1].startPosition + repetitionTotalLength :
+                focalPointLocalX;
+                
+            int newRepIndex = activeRepetitions.Count > 0 ? 
+                activeRepetitions[activeRepetitions.Count - 1].repetitionIndex + 1 : 0;
+                
+            CreateSingleRepetition(lastRepEndPos, newRepIndex);
+            
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Added repetition {newRepIndex} at pos {lastRepEndPos:F1}");
+        }
+    }
+    
+    private void UpdateAllRepetitionStates(float playbackTime)
     {
         int focalIndex = GetFocalCubeIndex();
         
-        for (int i = 0; i < preRenderedCubes.Count; i++)
+        foreach (var repetition in activeRepetitions)
         {
-            var cube = preRenderedCubes[i];
-            if (cube == null) continue;
-            
-            int globalDataIndex = (visibleCubeStartIndex + i) % originalNativePitchData.Count;
-            
-            float cubeLocalX = cube.transform.localPosition.x - settings.trackOffset.x;
-            int cubeVisualIndex = Mathf.RoundToInt(cubeLocalX / settings.cubeSpacing);
-            
-            CubeState state;
-            if (cubeVisualIndex < focalIndex - 1)
+            for (int i = 0; i < repetition.cubes.Count && i < originalNativePitchData.Count; i++)
             {
-                state = CubeState.Played;
+                var cube = repetition.cubes[i];
+                if (cube == null) continue;
+                
+                float cubeLocalX = cube.transform.localPosition.x - settings.trackOffset.x;
+                int cubeVisualIndex = Mathf.RoundToInt(cubeLocalX / settings.cubeSpacing);
+                
+                CubeState state;
+                if (cubeVisualIndex < focalIndex - 1)
+                {
+                    state = CubeState.Played;
+                }
+                else if (cubeVisualIndex >= focalIndex - 1 && cubeVisualIndex <= focalIndex + 1)
+                {
+                    state = CubeState.Current;
+                }
+                else
+                {
+                    state = CubeState.Future;
+                }
+                
+                SetNativeCubeStateByType(cube, i, state);
             }
-            else if (cubeVisualIndex >= focalIndex - 1 && cubeVisualIndex <= focalIndex + 1)
-            {
-                state = CubeState.Current;
-            }
-            else
-            {
-                state = CubeState.Future;
-            }
-            
-            SetNativeCubeStateByType(cube, globalDataIndex, state);
         }
     }
     
@@ -545,8 +678,18 @@ public class PitchVisualizer : MonoBehaviour
         var renderer = cube.GetComponent<Renderer>();
         if (renderer == null) return;
         
-        var pitchData = originalNativePitchData[dataIndex];
-        Color baseColor = GetCubeColor(pitchData);
+        // FIXED: Handle silence cubes safely
+        Color baseColor;
+        if (dataIndex >= 0 && dataIndex < originalNativePitchData.Count)
+        {
+            var pitchData = originalNativePitchData[dataIndex];
+            baseColor = GetCubeColor(pitchData);
+        }
+        else
+        {
+            // Silence cube
+            baseColor = settings.silenceColor;
+        }
         
         switch (state)
         {
@@ -569,7 +712,7 @@ public class PitchVisualizer : MonoBehaviour
     
     private void SetNativeCubeState(GameObject cube, int cubeIndex, int currentPlaybackIndex, int globalDataIndex = -1)
     {
-        int dataIndex = globalDataIndex >= 0 ? globalDataIndex : (visibleCubeStartIndex + cubeIndex) % originalNativePitchData.Count;
+        int dataIndex = globalDataIndex >= 0 ? globalDataIndex : cubeIndex % originalNativePitchData.Count;
         
         CubeState state;
         if (dataIndex < currentPlaybackIndex)
@@ -588,68 +731,6 @@ public class PitchVisualizer : MonoBehaviour
         SetNativeCubeStateByType(cube, dataIndex, state);
     }
     
-    private void ScrollNativeCubesDiscrete(int steps)
-    {
-        if (preRenderedCubes == null || steps <= 0) return;
-        
-        float scrollDistance = steps * settings.cubeSpacing;
-        
-        foreach (var cube in preRenderedCubes)
-        {
-            if (cube != null)
-            {
-                Vector3 pos = cube.transform.localPosition;
-                pos.x -= scrollDistance;
-                cube.transform.localPosition = pos;
-            }
-        }
-    }
-    
-    private void AddSimpleNativeCube(float loopedPlaybackTime)
-    {
-        if (originalNativePitchData == null) return;
-        
-        int newDataIndex = (visibleCubeStartIndex + settings.maxCubes) % originalNativePitchData.Count;
-        var newPitchData = originalNativePitchData[newDataIndex];
-        
-        GameObject newCube = CreateCube(newPitchData, true, settings.maxCubes - 1);
-        if (newCube != null)
-        {
-            // FIXED: Calculate proper right edge position based on current cube count
-            // For short audio, this ensures proper spacing without gaps
-            int currentCubeCount = Mathf.Min(settings.maxCubes, originalNativePitchData.Count);
-            float rightEdgeX = focalPointLocalX + ((currentCubeCount - 1) * settings.cubeSpacing);
-            Vector3 pos = new Vector3(rightEdgeX, 0, 0) + settings.trackOffset;
-            newCube.transform.localPosition = pos;
-            
-            preRenderedCubes.Add(newCube);
-            SetNativeCubeState(newCube, settings.maxCubes - 1, currentPlaybackIndex, newDataIndex);
-            
-            // Debug for short audio
-            if (originalNativePitchData.Count < settings.maxCubes)
-            {
-                Debug.Log($"[PitchVisualizer] {gameObject.name} Short audio: Adding cube at dataIndex={newDataIndex}, pos={pos.x:F2}, cubeCount={currentCubeCount}");
-            }
-        }
-        
-        visibleCubeStartIndex = (visibleCubeStartIndex + 1) % originalNativePitchData.Count;
-    }
-    
-    private void RemoveOffscreenNativeCubes()
-    {
-        if (preRenderedCubes == null) return;
-        
-        for (int i = preRenderedCubes.Count - 1; i >= 0; i--)
-        {
-            var cube = preRenderedCubes[i];
-            if (cube != null && cube.transform.localPosition.x < -settings.cubeSpacing)
-            {
-                DestroyImmediate(cube);
-                preRenderedCubes.RemoveAt(i);
-            }
-        }
-    }
-    
     private GameObject CreateCube(PitchDataPoint pitchData, bool isPreRendered, int index = -1)
     {
         if (settings.cubePrefab == null || settings.cubeParent == null) 
@@ -658,13 +739,12 @@ public class PitchVisualizer : MonoBehaviour
         GameObject newCube = Instantiate(settings.cubePrefab, settings.cubeParent);
         newCube.SetActive(true);
         
-        // FIXED: Only position user cubes automatically, pre-rendered cubes are positioned by caller
+        // Only position user cubes automatically, pre-rendered cubes are positioned by caller
         if (!isPreRendered)
         {
             Vector3 position = new Vector3(focalPointLocalX, 0, 0) + settings.trackOffset;
             newCube.transform.localPosition = position;
         }
-        // Pre-rendered cubes will be positioned by CreateInitialNativeWindow() or AddSimpleNativeCube()
         
         float pitchScale = CalculatePitchScale(pitchData);
         Vector3 scale = settings.cubeScale;
@@ -723,29 +803,30 @@ public class PitchVisualizer : MonoBehaviour
             }
         }
         preRenderedCubes.Clear();
+        
+        // FIXED: Reset variables properly
         currentPlaybackIndex = 0;
         lastPlaybackTime = 0f;
-        nativeCubeOffset = 0f;
-        visibleCubeStartIndex = 0;
     }
     
-    private void ValidateSettings()
+    private void ClearNativeRepetitions()
     {
-        if (settings.cubePrefab == null)
+        if (activeRepetitions != null)
         {
-            settings.cubePrefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            settings.cubePrefab.SetActive(false);
-        }
-        
-        if (settings.cubeParent == null)
-        {
-            GameObject parent = new GameObject("PitchVisualization");
-            settings.cubeParent = parent.transform;
+            foreach (var repetition in activeRepetitions)
+            {
+                foreach (var cube in repetition.cubes)
+                {
+                    if (cube != null) DestroyImmediate(cube);
+                }
+            }
+            activeRepetitions.Clear();
         }
     }
     
     public void ClearAll()
     {
+        // User cubes
         if (activeCubes != null)
         {
             while (activeCubes.Count > 0)
@@ -755,6 +836,10 @@ public class PitchVisualizer : MonoBehaviour
             }
         }
         
+        // Native repetitions
+        ClearNativeRepetitions();
+        
+        // Legacy cleanup (remove after testing)
         ClearPreRenderedCubes();
         
         if (focalIndicator != null)
