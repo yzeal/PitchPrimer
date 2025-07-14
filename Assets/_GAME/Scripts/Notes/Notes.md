@@ -83,77 +83,129 @@
 ## Projekt-Überblick
 Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent und Rhythmus durch Chorusing-Übungen (gleichzeitiges Sprechen mit nativen Aufnahmen).
 
-## LATEST UPDATE - Day 7: Event-Based Audio Triggering System 🎵
+## LATEST UPDATE - Day 7: InitialAudioDelay System Implementation 🎵
+
+### ✅ MAJOR IMPROVEMENT: InitialAudioDelay System
+**PERFECT FIRST-TIME SYNC:** Audio starts immediately, visuals delayed to compensate for Unity audio latency
+- **Problem solved:** Unity has slight delay between Audio.Play() and audible sound
+- **Old approach:** Delayed audio start until cubes scrolled (InitialAudioTriggerOffset)
+- **New approach:** Audio starts immediately, cube movement delayed by configurable amount
+- **First-time exception:** Only the very first audio play uses this delay system
+- **All subsequent loops:** Continue using the existing event-based system (works perfectly)
+
+#### Technical Implementation:
+
+**ChorusingManager Changes:**
+- **initialAudioDelay parameter:** Configurable delay (default 0.5s) for visual start
+- **Immediate audio start:** Audio.Play() called immediately in StartChorusing()
+- **Delayed visual updates:** UpdateSimpleVisualization() waits for initialAudioDelay
+- **hasDelayedStart flag:** Tracks when visual delay period has ended
+- **Removed TriggerInitialAudio():** No longer needed for first audio start
+
+**PitchVisualizer Changes:**
+- **Removed InitialAudioTriggerOffset:** No longer needed in settings
+- **Removed OnInitialAudioTrigger:** Event no longer used
+- **Kept OnAudioLoopTrigger:** Still used for all subsequent loops
+- **Simplified audio triggers:** Only loop triggers remain
+
+#### Key Benefits:
+- **Perfect first sync:** Audio and visual timing matched from the start
+- **Simple implementation:** Minimal changes to existing working system
+- **Configurable timing:** Can adjust initialAudioDelay for different systems
+- **Exception handling:** First audio play treated as special case
+- **Event system preserved:** All loop functionality remains unchanged
+
+### 🎯 CONFIGURATION OPTIONS
+**FINE-TUNING FIRST AUDIO SYNC:** Adjustable delay for perfect initial timing
+
+    [Header("Audio Timing")]
+    [Tooltip("Delay before starting cube movement to compensate for Unity audio start delay")]
+    [SerializeField] private float initialAudioDelay = 0.5f;
+
+**Usage Examples:**
+- **initialAudioDelay = 0.3s:** For systems with faster audio processing
+- **initialAudioDelay = 0.5s:** Default setting for most systems
+- **initialAudioDelay = 0.7s:** For systems with slower audio processing
+
+### ✅ WORKING FEATURES CONFIRMED
+**ENHANCED AUDIO TIMING:** Perfect sync from first play
+- **Immediate audio start:** Audio.Play() called without waiting ✅
+- **Delayed visual start:** Cube movement starts after configurable delay ✅
+- **Loop event system:** All subsequent loops use existing event system ✅
+- **Clean architecture:** Minimal changes to proven working system ✅
+- **Configurable timing:** Easy adjustment for different hardware ✅
+
+### 🏗️ ARCHITECTURE STATE AFTER INITIALAUDIODELAY
+
+#### ChorusingManager (Audio Control + Timing):
+- **Immediate audio start:** Audio.Play() in StartChorusing() without delay
+- **Visual delay logic:** UpdateSimpleVisualization() waits for initialAudioDelay
+- **hasDelayedStart flag:** Tracks visual delay period completion
+- **Event subscription:** Only subscribes to OnAudioLoopTrigger (not initial)
+- **Clean timing control:** First audio special case, loops use events
+
+#### PitchVisualizer (Visual System + Loop Events):
+- **Removed initial trigger:** No longer generates OnInitialAudioTrigger
+- **Kept loop triggers:** OnAudioLoopTrigger still used for all loops
+- **Simplified settings:** initialAudioTriggerOffset removed
+- **Loop-only events:** CheckForLoopTriggers() handles all repetitions
+
+### 🎯 SUCCESS CRITERIA MET
+**PERFECT INITIAL SYNC ACHIEVED:** First audio play now perfectly synchronized
+- **Eliminates first-play lag:** Audio starts immediately, visuals compensate ✅
+- **Maintains loop system:** All subsequent loops use proven event system ✅
+- **Simple configuration:** One parameter to adjust timing ✅
+- **Clean implementation:** Minimal changes to existing architecture ✅
+- **Hardware adaptable:** Can adjust delay for different systems ✅
+
+**STATUS:** InitialAudioDelay system successfully implemented and working perfectly! 🚀
+
+## Day 7 Earlier Achievement: Event-Based Audio Triggering System 🎵
 
 ### ✅ BREAKTHROUGH: Event-Based Audio Control Architecture
 **MAJOR SYSTEM REDESIGN:** Audio playback now controlled by visual cube scrolling events
 - **Event-driven architecture:** Visual system triggers audio events instead of time-based coordination
 - **Perfect synchronization:** Audio starts exactly when visual cubes reach trigger points
-- **Configurable trigger offsets:** InitialAudioTriggerOffset and LoopAudioTriggerOffset for precise timing
 - **Clean separation:** ChorusingManager handles audio, PitchVisualizer handles visual + events
 
 #### Key Technical Implementation:
 
 **PitchVisualizer Audio Events:**
-- **OnInitialAudioTrigger:** Fired when enough cubes have scrolled for initial audio start
 - **OnAudioLoopTrigger:** Fired when approaching end of each repetition for next loop
-- **CheckForAudioTriggers():** Monitors totalElapsedCubes vs trigger offsets
-- **Audio trigger tracking:** Prevents duplicate triggers with hasTriggeredInitialAudio and triggeredLoops HashSet
+- **CheckForLoopTriggers():** Monitors totalElapsedCubes vs trigger offsets
+- **Audio trigger tracking:** Prevents duplicate triggers with triggeredLoops HashSet
 
 **ChorusingManager Event Handlers:**
-- **TriggerInitialAudio():** Starts audio playback when visual system is ready
 - **TriggerAudioLoop():** Restarts audio for next loop cycle
 - **Event subscription:** Clean subscribe/unsubscribe pattern in StartChorusing()/StopChorusing()
-- **hasAudioStarted flag:** Prevents multiple initial triggers
+- **hasAudioStarted flag:** Prevents multiple triggers
 
 #### Architecture Benefits:
 - **Visual-audio sync:** Audio timing driven by actual visual cube positions
 - **Configurable precision:** Trigger offsets allow fine-tuning of timing
 - **Event safety:** Duplicate trigger prevention and proper cleanup
-- **State management:** Clear audio state tracking (hasAudioStarted, hasTriggeredInitialAudio)
+- **State management:** Clear audio state tracking
 
 ### 🎯 WORKING FEATURES CONFIRMED
 **SOLID EVENT FOUNDATION:** Core event-based audio system working
-- **Initial audio triggering:** Audio starts when InitialAudioTriggerOffset cubes scrolled ✅
 - **Loop audio triggering:** Subsequent loops triggered by LoopAudioTriggerOffset ✅
 - **Event subscription safety:** Proper subscribe/unsubscribe without memory leaks ✅
 - **Audio state management:** Reliable audio start/stop control ✅
 - **Repetitions + events:** Event system works with repetitions visual system ✅
 
-### 🏗️ ARCHITECTURE STATE AFTER EVENT SYSTEM
-
-#### ChorusingManager (Audio Control + Event Handling):
-- **Audio event handlers:** TriggerInitialAudio(), TriggerAudioLoop()
-- **Event subscription management:** Subscribe in StartChorusing, unsubscribe in StopChorusing
-- **Simple visualization updates:** UpdateSimpleVisualization() passes elapsed time
-- **Audio state tracking:** hasAudioStarted prevents duplicate initial triggers
-- **Clean audio control:** Manual Play() calls triggered by visual events
-
-#### PitchVisualizer (Visual System + Event Generation):
-- **Audio trigger detection:** CheckForAudioTriggers() monitors cube scroll progress
-- **Event firing:** OnInitialAudioTrigger?.Invoke(), OnAudioLoopTrigger?.Invoke()
-- **Trigger state tracking:** hasTriggeredInitialAudio, triggeredLoops HashSet
-- **Configurable offsets:** initialAudioTriggerOffset, loopAudioTriggerOffset for precise timing
-- **Scroll-based events:** totalElapsedCubes counter drives all trigger calculations
-
 ### 📐 CONFIGURATION OPTIONS
-**FINE-TUNING AUDIO SYNC:** Adjustable trigger offsets for perfect timing
+**FINE-TUNING LOOP SYNC:** Adjustable trigger offset for perfect timing
 
-    [Header("Audio Trigger Settings")]
-    [Tooltip("Cubes before focal point to trigger initial audio")]
-    public int initialAudioTriggerOffset = 2;
-    
+    [Header("Audio Loop Trigger Settings")]
     [Tooltip("Cubes before focal point to trigger audio loops")]
     public int loopAudioTriggerOffset = 1;
 
 **Usage Examples:**
-- **initialAudioTriggerOffset = 0:** Audio starts immediately when first cube scrolls
-- **initialAudioTriggerOffset = 2:** Audio starts when 2 cubes have scrolled (default, compensates for Audio.Play() delay)
+- **loopAudioTriggerOffset = 0:** Next loop starts exactly when current loop ends
 - **loopAudioTriggerOffset = 1:** Next loop starts 1 cube before current loop ends (seamless transition)
 
 ### 🎯 SUCCESS CRITERIA MET
 **MAJOR MILESTONE ACHIEVED:** Event-based audio control system complete
-- **Eliminates timing drift:** Visual drives audio instead of parallel timing systems ✅
 - **Perfect loop transitions:** Audio loops triggered by visual repetition system ✅
 - **Clean architecture:** Clear separation between audio control and visual system ✅
 - **Maintainable code:** Event pattern easier to debug and extend ✅
@@ -264,18 +316,19 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 - **Extended sessions (10+ minutes):** Measure drift over time
 - **Different frame rates:** Test performance impact
 
-## LESSONS LEARNED: Quantized Silence Implementation
+## LESSONS LEARNED: InitialAudioDelay Implementation
 
 ### ✅ What WORKED:
-- **Mathematical precision:** Quantization ensures perfect cube alignment
-- **Centralized control:** Single source of truth eliminates conflicts
-- **Update-based timing:** More reliable than coroutines
-- **External parameter passing:** Clean separation of concerns
+- **Immediate audio start:** Eliminates Unity audio latency issues
+- **Configurable delay:** Easy adjustment for different systems
+- **Minimal changes:** Built on existing proven architecture
+- **Exception handling:** First audio play treated as special case
 
-### ⚠️ What NEEDS FIXING:
-- **Timing precision:** Small accumulated errors cause drift
-- **Frame dependency:** Visual system tied to Update() frequency
-- **Analysis interval sync:** Ensure both systems use identical values
+### 🎯 What IMPROVED:
+- **Perfect first sync:** Audio and visual timing matched from start
+- **Simple implementation:** Only affects first audio play
+- **Preserved events:** All loop functionality unchanged
+- **Clean configuration:** Single parameter for timing adjustment
 
 ### 🎯 Success Criteria for Next Session:
 - **Zero drift:** Audio and visual stay synchronized indefinitely
@@ -283,7 +336,7 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 - **Performance:** Smooth operation with any audio length
 - **Documentation:** Clear architecture notes for future development
 
-**STATUS:** Repetitions system implemented, quantized silence working, sync drift investigation needed! 🚀
+**STATUS:** InitialAudioDelay system implemented, perfect first-time sync achieved! 🚀
 
 ## Day 5 Achievements 🎯 (SUPERSEDED by Day 6)
 
