@@ -83,7 +83,85 @@
 ## Projekt-Überblick
 Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent und Rhythmus durch Chorusing-Übungen (gleichzeitiges Sprechen mit nativen Aufnahmen).
 
-## LATEST UPDATE - Day 6: Repetitions System & Quantized Silence 🎯
+## LATEST UPDATE - Day 7: Event-Based Audio Triggering System 🎵
+
+### ✅ BREAKTHROUGH: Event-Based Audio Control Architecture
+**MAJOR SYSTEM REDESIGN:** Audio playback now controlled by visual cube scrolling events
+- **Event-driven architecture:** Visual system triggers audio events instead of time-based coordination
+- **Perfect synchronization:** Audio starts exactly when visual cubes reach trigger points
+- **Configurable trigger offsets:** InitialAudioTriggerOffset and LoopAudioTriggerOffset for precise timing
+- **Clean separation:** ChorusingManager handles audio, PitchVisualizer handles visual + events
+
+#### Key Technical Implementation:
+
+**PitchVisualizer Audio Events:**
+- **OnInitialAudioTrigger:** Fired when enough cubes have scrolled for initial audio start
+- **OnAudioLoopTrigger:** Fired when approaching end of each repetition for next loop
+- **CheckForAudioTriggers():** Monitors totalElapsedCubes vs trigger offsets
+- **Audio trigger tracking:** Prevents duplicate triggers with hasTriggeredInitialAudio and triggeredLoops HashSet
+
+**ChorusingManager Event Handlers:**
+- **TriggerInitialAudio():** Starts audio playback when visual system is ready
+- **TriggerAudioLoop():** Restarts audio for next loop cycle
+- **Event subscription:** Clean subscribe/unsubscribe pattern in StartChorusing()/StopChorusing()
+- **hasAudioStarted flag:** Prevents multiple initial triggers
+
+#### Architecture Benefits:
+- **Visual-audio sync:** Audio timing driven by actual visual cube positions
+- **Configurable precision:** Trigger offsets allow fine-tuning of timing
+- **Event safety:** Duplicate trigger prevention and proper cleanup
+- **State management:** Clear audio state tracking (hasAudioStarted, hasTriggeredInitialAudio)
+
+### 🎯 WORKING FEATURES CONFIRMED
+**SOLID EVENT FOUNDATION:** Core event-based audio system working
+- **Initial audio triggering:** Audio starts when InitialAudioTriggerOffset cubes scrolled ✅
+- **Loop audio triggering:** Subsequent loops triggered by LoopAudioTriggerOffset ✅
+- **Event subscription safety:** Proper subscribe/unsubscribe without memory leaks ✅
+- **Audio state management:** Reliable audio start/stop control ✅
+- **Repetitions + events:** Event system works with repetitions visual system ✅
+
+### 🏗️ ARCHITECTURE STATE AFTER EVENT SYSTEM
+
+#### ChorusingManager (Audio Control + Event Handling):
+- **Audio event handlers:** TriggerInitialAudio(), TriggerAudioLoop()
+- **Event subscription management:** Subscribe in StartChorusing, unsubscribe in StopChorusing
+- **Simple visualization updates:** UpdateSimpleVisualization() passes elapsed time
+- **Audio state tracking:** hasAudioStarted prevents duplicate initial triggers
+- **Clean audio control:** Manual Play() calls triggered by visual events
+
+#### PitchVisualizer (Visual System + Event Generation):
+- **Audio trigger detection:** CheckForAudioTriggers() monitors cube scroll progress
+- **Event firing:** OnInitialAudioTrigger?.Invoke(), OnAudioLoopTrigger?.Invoke()
+- **Trigger state tracking:** hasTriggeredInitialAudio, triggeredLoops HashSet
+- **Configurable offsets:** initialAudioTriggerOffset, loopAudioTriggerOffset for precise timing
+- **Scroll-based events:** totalElapsedCubes counter drives all trigger calculations
+
+### 📐 CONFIGURATION OPTIONS
+**FINE-TUNING AUDIO SYNC:** Adjustable trigger offsets for perfect timing
+
+    [Header("Audio Trigger Settings")]
+    [Tooltip("Cubes before focal point to trigger initial audio")]
+    public int initialAudioTriggerOffset = 2;
+    
+    [Tooltip("Cubes before focal point to trigger audio loops")]
+    public int loopAudioTriggerOffset = 1;
+
+**Usage Examples:**
+- **initialAudioTriggerOffset = 0:** Audio starts immediately when first cube scrolls
+- **initialAudioTriggerOffset = 2:** Audio starts when 2 cubes have scrolled (default, compensates for Audio.Play() delay)
+- **loopAudioTriggerOffset = 1:** Next loop starts 1 cube before current loop ends (seamless transition)
+
+### 🎯 SUCCESS CRITERIA MET
+**MAJOR MILESTONE ACHIEVED:** Event-based audio control system complete
+- **Eliminates timing drift:** Visual drives audio instead of parallel timing systems ✅
+- **Perfect loop transitions:** Audio loops triggered by visual repetition system ✅
+- **Clean architecture:** Clear separation between audio control and visual system ✅
+- **Maintainable code:** Event pattern easier to debug and extend ✅
+- **Configuration flexibility:** Adjustable trigger offsets for different use cases ✅
+
+**STATUS:** Event-based audio triggering system successfully implemented and working! 🚀
+
+## Day 6 Achievements 🎯
 
 ### 1. ✅ CRITICAL BREAKTHROUGH: Repetitions System Implemented
 **MAJOR ARCHITECTURE CHANGE:** Native recordings now use repetitions instead of maxCubes limit
