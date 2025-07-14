@@ -4,7 +4,7 @@ using System.Collections.Generic;
 // COPILOT CONTEXT: Main controller for chorusing exercises
 // Coordinates native recording playback with user microphone input
 // Manages dual-track visualization and synchronization
-// UPDATED: Event-based audio triggering system - much simpler!
+// UPDATED: InitialAudioDelay system - Audio starts immediately, visual delays
 
 public class ChorusingManager : MonoBehaviour
 {
@@ -21,6 +21,10 @@ public class ChorusingManager : MonoBehaviour
     [SerializeField] private AudioClip nativeClip;
     [SerializeField] private float analysisInterval = 0.1f;
 
+    [Header("Audio Timing")]
+    [Tooltip("Delay before starting cube movement to compensate for Unity audio start delay")]
+    [SerializeField] private float initialAudioDelay = 0.5f;
+
     [Header("Native Recording Silence")]
     [Tooltip("Requested silence duration between native recording loops (seconds)")]
     [SerializeField] private float requestedSilenceDuration = 0.6f;
@@ -33,9 +37,11 @@ public class ChorusingManager : MonoBehaviour
     private List<PitchDataPoint> nativePitchData;
     private bool isChorusingActive = false;
     private float chorusingStartTime;
+    private float audioStartTime;
 
-    // NEW: Simple event-based system
+    // Audio control flags
     private bool hasAudioStarted = false;
+    private bool hasDelayedStart = false;
 
     void Start()
     {
@@ -71,40 +77,32 @@ public class ChorusingManager : MonoBehaviour
             micAnalysis.StartAnalysis();
         }
 
-        // Setup visualization with event-based audio triggers
+        // Setup visualization (no longer subscribes to initial audio events)
         if (nativeVisualizer != null)
         {
             nativeVisualizer.PreRenderNativeTrack(nativePitchData, quantizedSilenceDuration);
             nativeVisualizer.ResetAudioTriggers();
             
-            // Subscribe to audio trigger events
-            nativeVisualizer.OnInitialAudioTrigger += TriggerInitialAudio;
+            // Subscribe to LOOP events only (not initial)
             nativeVisualizer.OnAudioLoopTrigger += TriggerAudioLoop;
         }
 
-        // Setup audio source but don't play yet - wait for visual trigger
+        // Setup audio source and START IMMEDIATELY
         if (nativeAudioSource != null)
         {
             nativeAudioSource.clip = nativeClip;
             nativeAudioSource.loop = false;
+            nativeAudioSource.Play(); // Start audio immediately
+            audioStartTime = Time.time;
+            hasAudioStarted = true;
+            DebugLog("?? Audio started immediately - visual delay active");
         }
 
         isChorusingActive = true;
         chorusingStartTime = Time.time;
-        hasAudioStarted = false;
+        hasDelayedStart = false; // Will be set to true after delay
 
-        DebugLog("Chorusing started - waiting for visual trigger events");
-    }
-
-    // NEW: Event handlers for visual triggers
-    private void TriggerInitialAudio()
-    {
-        if (!hasAudioStarted && nativeAudioSource != null)
-        {
-            nativeAudioSource.Play();
-            hasAudioStarted = true;
-            DebugLog("?? Initial audio triggered by visualizer!");
-        }
+        DebugLog($"Chorusing started - visual delay: {initialAudioDelay}s");
     }
 
     private void TriggerAudioLoop()
@@ -130,10 +128,9 @@ public class ChorusingManager : MonoBehaviour
             nativeAudioSource.Stop();
         }
 
-        // Unsubscribe from events
+        // Unsubscribe from LOOP events only (no initial event anymore)
         if (nativeVisualizer != null)
         {
-            nativeVisualizer.OnInitialAudioTrigger -= TriggerInitialAudio;
             nativeVisualizer.OnAudioLoopTrigger -= TriggerAudioLoop;
         }
 
@@ -149,17 +146,32 @@ public class ChorusingManager : MonoBehaviour
         }
 
         hasAudioStarted = false;
+        hasDelayedStart = false;
         DebugLog("Chorusing stopped!");
     }
 
-    // NEW: Simple visualization update - just pass elapsed time
     private void UpdateSimpleVisualization()
     {
         if (nativeVisualizer != null && nativePitchData != null)
         {
-            // Ultra-simple: just pass elapsed time since start
-            float elapsedTime = Time.time - chorusingStartTime;
-            nativeVisualizer.UpdateNativeTrackPlayback(elapsedTime, nativePitchData);
+            // Check if we should start visual updates (after delay)
+            if (!hasDelayedStart)
+            {
+                if (Time.time - chorusingStartTime >= initialAudioDelay)
+                {
+                    hasDelayedStart = true;
+                    DebugLog("?? Visual movement started after delay");
+                }
+                else
+                {
+                    // Still in delay period - don't update visuals
+                    return;
+                }
+            }
+
+            // Calculate elapsed time since visual start (not audio start)
+            float visualElapsedTime = Time.time - (chorusingStartTime + initialAudioDelay);
+            nativeVisualizer.UpdateNativeTrackPlayback(visualElapsedTime, nativePitchData);
         }
     }
 
@@ -207,6 +219,12 @@ public class ChorusingManager : MonoBehaviour
             CalculateQuantizedSilence();
             DebugLog($"Silence updated during playback to: {quantizedSilenceDuration:F3}s");
         }
+    }
+
+    public void SetInitialAudioDelay(float newDelay)
+    {
+        initialAudioDelay = newDelay;
+        DebugLog($"Initial audio delay set to: {initialAudioDelay:F3}s");
     }
 
     private void InitializeComponents()
@@ -294,6 +312,7 @@ public class ChorusingManager : MonoBehaviour
     public float GetNativePlaybackTime() => nativeAudioSource != null ? nativeAudioSource.time : 0f;
     public List<PitchDataPoint> GetNativePitchData() => nativePitchData;
     public float GetQuantizedSilenceDuration() => quantizedSilenceDuration;
+    public float GetInitialAudioDelay() => initialAudioDelay;
 
     // Debug Methods
     private void DebugLog(string message)
@@ -314,7 +333,6 @@ public class ChorusingManager : MonoBehaviour
         
         if (nativeVisualizer != null)
         {
-            nativeVisualizer.OnInitialAudioTrigger -= TriggerInitialAudio;
             nativeVisualizer.OnAudioLoopTrigger -= TriggerAudioLoop;
         }
     }
