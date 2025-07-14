@@ -40,6 +40,11 @@ public class ChorusingManager : MonoBehaviour
     private float silenceStartTime = 0f;
     private float lastLoopEndTime = 0f;
 
+    // ENHANCED: Extended debugging for drift analysis
+    private float expectedLoopStartTime = 0f;
+    private int loopCount = 0;
+    private float totalDriftAccumulated = 0f;
+
     void Start()
     {
         InitializeComponents();
@@ -179,7 +184,7 @@ public class ChorusingManager : MonoBehaviour
         }
     }
 
-    // NEW: Update-based quantized silence logic
+    // NEW: Update-based quantized silence logic with detailed timing analysis
     private void UpdateQuantizedAudioSilenceLogic()
     {
         if (nativeAudioSource == null || nativeClip == null) return;
@@ -197,14 +202,26 @@ public class ChorusingManager : MonoBehaviour
             
             if (currentTime >= visualAudioEndTime)
             {
+                // ENHANCED: Measure actual vs expected timing
+                float actualSilenceStartTime = currentTime;
+                float expectedSilenceStartTime = chorusingStartTime + (loopCount * visualTotalLoopTime) + visualAudioTime;
+                float silenceStartDrift = actualSilenceStartTime - expectedSilenceStartTime;
+                totalDriftAccumulated += silenceStartDrift;
+                
                 // Enter QUANTIZED silence period
                 isInSilencePeriod = true;
                 silenceStartTime = currentTime;
                 
-                DebugLog($"?? Entering QUANTIZED silence period ({quantizedSilenceDuration:F3}s)");
-                DebugLog($"  Audio clip length: {nativeClip.length:F3}s");
+                DebugLog($"?? ENTERING SILENCE - DRIFT ANALYSIS:");
+                DebugLog($"  Loop #{loopCount} - Audio clip length: {nativeClip.length:F3}s");
                 DebugLog($"  Visual audio time: {visualAudioTime:F3}s");
                 DebugLog($"  Visual total loop: {visualTotalLoopTime:F3}s");
+                DebugLog($"  Expected silence start: {expectedSilenceStartTime:F3}s");
+                DebugLog($"  Actual silence start: {actualSilenceStartTime:F3}s");
+                DebugLog($"  THIS LOOP drift: {silenceStartDrift:F3}s");
+                DebugLog($"  TOTAL accumulated drift: {totalDriftAccumulated:F3}s");
+                DebugLog($"  Audio was playing for: {(currentTime - (lastLoopEndTime - nativeClip.length)):F3}s");
+                DebugLog($"  AudioSource.time when stopped: {nativeAudioSource.time:F3}s");
             }
         }
         else
@@ -212,16 +229,33 @@ public class ChorusingManager : MonoBehaviour
             // Check if QUANTIZED silence period should end
             if (currentTime >= silenceStartTime + quantizedSilenceDuration)
             {
+                // ENHANCED: Measure audio restart timing
+                float actualRestartTime = currentTime;
+                float expectedRestartTime = chorusingStartTime + ((loopCount + 1) * visualTotalLoopTime);
+                float restartDrift = actualRestartTime - expectedRestartTime;
+                
                 // FIXED: Next loop starts at quantized time
                 isInSilencePeriod = false;
+                
+                // CRITICAL: Log BEFORE starting audio to avoid timing confusion
+                float timeBeforePlay = Time.time;
                 nativeAudioSource.Play();
+                float timeAfterPlay = Time.time;
+                float audioStartDelay = timeAfterPlay - timeBeforePlay;
                 
                 // CRITICAL: Use visual total loop time for next loop timing
                 lastLoopEndTime = currentTime + nativeClip.length;
+                loopCount++;
                 
-                DebugLog($"?? QUANTIZED silence ended ({quantizedSilenceDuration:F3}s), starting next audio loop");
+                DebugLog($"?? STARTING AUDIO - DRIFT ANALYSIS:");
+                DebugLog($"  Loop #{loopCount} - Silence duration: {quantizedSilenceDuration:F3}s");
+                DebugLog($"  Expected restart time: {expectedRestartTime:F3}s");
+                DebugLog($"  Actual restart time: {actualRestartTime:F3}s");
+                DebugLog($"  RESTART drift: {restartDrift:F3}s");
+                DebugLog($"  Audio.Play() delay: {audioStartDelay:F6}s");
                 DebugLog($"  Next loop will end at: {lastLoopEndTime:F3}s");
                 DebugLog($"  Visual timing: {visualTotalLoopTime:F3}s per loop");
+                DebugLog($"  TOTAL drift after {loopCount} loops: {totalDriftAccumulated:F3}s");
             }
         }
     }
@@ -257,18 +291,22 @@ public class ChorusingManager : MonoBehaviour
         DebugLog("Chorusing stopped!");
     }
 
-    // ENHANCED: Visualization update with quantized timing
+    // ENHANCED: More detailed visualization timing
     private void UpdateNativeVisualization()
     {
         if (nativeVisualizer != null && nativePitchData != null && nativeAudioSource != null)
         {
             float playbackTime;
+            // CRITICAL FIX: Use consistent visual timing throughout
+            float visualTotalLoop = (nativePitchData.Count * analysisInterval) + quantizedSilenceDuration;
 
             if (isInSilencePeriod)
             {
                 // During QUANTIZED silence: extend beyond audio duration
                 float silenceElapsed = Time.time - silenceStartTime;
-                playbackTime = nativeClip.length + silenceElapsed;
+                // FIXED: Use visual audio time instead of actual clip length
+                float visualAudioTime = nativePitchData.Count * analysisInterval;
+                playbackTime = visualAudioTime + silenceElapsed;
             }
             else
             {
@@ -278,13 +316,23 @@ public class ChorusingManager : MonoBehaviour
 
             nativeVisualizer.UpdateNativeTrackPlayback(playbackTime, nativePitchData);
             
-            // DEBUG: Show quantized timing every 2 seconds
-            if (enableDebugLogging && Time.time % 2f < 0.1f)
+            // ENHANCED: More frequent and detailed debug timing
+            if (enableDebugLogging && Time.time % 1f < 0.1f) // Every 1 second instead of 2
             {
-                float totalLoop = nativeClip.length + quantizedSilenceDuration;
-                float loopPosition = playbackTime % totalLoop;
-                DebugLog($"QUANTIZED TIMING: playing={nativeAudioSource.isPlaying}, silence={isInSilencePeriod}, " +
-                        $"playbackTime={playbackTime:F2}s, loopPos={loopPosition:F2}s, totalLoop={totalLoop:F2}s");
+                float expectedPlaybackTime = (Time.time - chorusingStartTime) % visualTotalLoop;
+                float timingDifference = playbackTime - expectedPlaybackTime;
+                
+                DebugLog($"?? VISUALIZATION TIMING:");
+                DebugLog($"  AudioSource.isPlaying: {nativeAudioSource.isPlaying}");
+                DebugLog($"  In silence period: {isInSilencePeriod}");
+                DebugLog($"  Actual playback time: {playbackTime:F3}s");
+                DebugLog($"  Expected playback time: {expectedPlaybackTime:F3}s");
+                DebugLog($"  Visual total loop: {visualTotalLoop:F3}s");
+                // CRITICAL FIX: Use same visual timing for comparison
+                DebugLog($"  Audio total loop: {visualTotalLoop:F3}s"); // Was: {(nativeClip.length + quantizedSilenceDuration):F3}s
+                DebugLog($"  Timing difference: {timingDifference:F3}s");
+                DebugLog($"  Elapsed since start: {(Time.time - chorusingStartTime):F1}s");
+                DebugLog($"  Current loop: {loopCount}");
             }
         }
     }
