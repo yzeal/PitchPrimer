@@ -1854,7 +1854,7 @@ MonoBehaviour:
   autoLoop: 1
   requestedSilenceDuration: 0.6
   quantizedSilenceDuration: 0
-  enableDebugLogging: 0
+  enableDebugLogging: 1
 --- !u!1 &1285873726
 GameObject:
   m_ObjectHideFlags: 0
