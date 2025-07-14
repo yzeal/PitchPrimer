@@ -4,7 +4,7 @@ using System.Collections.Generic;
 // COPILOT CONTEXT: Main controller for chorusing exercises
 // Coordinates native recording playback with user microphone input
 // Manages dual-track visualization and synchronization
-// UPDATED: References visualizers directly to avoid duplicate settings
+// UPDATED: Event-based audio triggering system - much simpler!
 
 public class ChorusingManager : MonoBehaviour
 {
@@ -20,7 +20,6 @@ public class ChorusingManager : MonoBehaviour
     [Header("Native Recording")]
     [SerializeField] private AudioClip nativeClip;
     [SerializeField] private float analysisInterval = 0.1f;
-    [SerializeField] private bool autoLoop = true;
 
     [Header("Native Recording Silence")]
     [Tooltip("Requested silence duration between native recording loops (seconds)")]
@@ -35,15 +34,8 @@ public class ChorusingManager : MonoBehaviour
     private bool isChorusingActive = false;
     private float chorusingStartTime;
 
-    // NEW: Quantified silence system
-    private bool isInSilencePeriod = false;
-    private float silenceStartTime = 0f;
-    private float lastLoopEndTime = 0f;
-
-    // ENHANCED: Extended debugging for drift analysis
-    private float expectedLoopStartTime = 0f;
-    private int loopCount = 0;
-    private float totalDriftAccumulated = 0f;
+    // NEW: Simple event-based system
+    private bool hasAudioStarted = false;
 
     void Start()
     {
@@ -58,8 +50,7 @@ public class ChorusingManager : MonoBehaviour
     {
         if (isChorusingActive)
         {
-            UpdateQuantizedAudioSilenceLogic();
-            UpdateNativeVisualization();
+            UpdateSimpleVisualization();
         }
     }
 
@@ -71,7 +62,7 @@ public class ChorusingManager : MonoBehaviour
             return;
         }
 
-        // CRITICAL: Calculate quantized silence BEFORE starting
+        // Calculate quantized silence (keep this)
         CalculateQuantizedSilence();
 
         // Start microphone analysis
@@ -80,192 +71,54 @@ public class ChorusingManager : MonoBehaviour
             micAnalysis.StartAnalysis();
         }
 
-        // Start audio without Unity auto-loop
-        if (nativeAudioSource != null)
-        {
-            nativeAudioSource.clip = nativeClip;
-            nativeAudioSource.loop = false; // Manual looping with silence
-            nativeAudioSource.Play();
-            
-            // Track when this loop should end
-            lastLoopEndTime = Time.time + nativeClip.length;
-            isInSilencePeriod = false;
-            
-            DebugLog($"Audio started, will end at: {lastLoopEndTime:F2}s (current: {Time.time:F2}s)");
-        }
-
-        // Pre-render native visualization with quantized silence
+        // Setup visualization with event-based audio triggers
         if (nativeVisualizer != null)
         {
             nativeVisualizer.PreRenderNativeTrack(nativePitchData, quantizedSilenceDuration);
+            nativeVisualizer.ResetAudioTriggers();
+            
+            // Subscribe to audio trigger events
+            nativeVisualizer.OnInitialAudioTrigger += TriggerInitialAudio;
+            nativeVisualizer.OnAudioLoopTrigger += TriggerAudioLoop;
+        }
+
+        // Setup audio source but don't play yet - wait for visual trigger
+        if (nativeAudioSource != null)
+        {
+            nativeAudioSource.clip = nativeClip;
+            nativeAudioSource.loop = false;
         }
 
         isChorusingActive = true;
         chorusingStartTime = Time.time;
+        hasAudioStarted = false;
 
-        DebugLog($"Chorusing started with quantized silence: {quantizedSilenceDuration:F3}s");
+        DebugLog("Chorusing started - waiting for visual trigger events");
     }
 
-    // FIXED: Calculate silence duration for perfect visual sync
-    private void CalculateQuantizedSilence()
+    // NEW: Event handlers for visual triggers
+    private void TriggerInitialAudio()
     {
-        if (nativeClip == null || nativePitchData == null)
+        if (!hasAudioStarted && nativeAudioSource != null)
         {
-            DebugLog("No native clip or pitch data available for quantization calculation");
-            quantizedSilenceDuration = 0f;
-            return;
-        }
-
-        // CRITICAL FIX: Calculate total cubes first, then derive silence
-        int actualAudioCubes = nativePitchData.Count;
-        int requestedSilenceCubes = Mathf.RoundToInt(requestedSilenceDuration / analysisInterval);
-        
-        // CRITICAL: Ensure minimum 1 silence cube to avoid drift
-        if (requestedSilenceCubes == 0)
-        {
-            requestedSilenceCubes = 1;
-            DebugLog("ANTI-DRIFT: Minimum 1 silence cube enforced to prevent timing drift");
-        }
-        
-        int totalCubes = actualAudioCubes + requestedSilenceCubes;
-        
-        // Calculate times for perfect visual sync
-        float visualAudioTime = actualAudioCubes * analysisInterval;
-        float visualTotalTime = totalCubes * analysisInterval;
-        
-        // Calculate silence to make total time match visual total time
-        float actualSilenceNeeded = visualTotalTime - nativeClip.length;
-        quantizedSilenceDuration = actualSilenceNeeded;
-        
-        // FIXED: Handle negative silence by adding one analysis interval
-        if (quantizedSilenceDuration < 0f)
-        {
-            quantizedSilenceDuration += analysisInterval;
-            totalCubes += 1; // Add one more silence cube
-            requestedSilenceCubes += 1;
-            visualTotalTime = totalCubes * analysisInterval;
-            
-            DebugLog($"ANTI-DRIFT: Negative silence detected, added 1 analysis interval");
-            DebugLog($"  Original silence needed: {actualSilenceNeeded:F3}s");
-            DebugLog($"  Adjusted silence: {quantizedSilenceDuration:F3}s");
-            DebugLog($"  Added silence cubes: 1");
-            DebugLog($"  New total cubes: {totalCubes}");
-        }
-        
-        DebugLog($"PERFECT SYNC QUANTIZATION CALCULATION:");
-        DebugLog($"  Audio clip length: {nativeClip.length:F3}s (actual file)");
-        DebugLog($"  Actual audio cubes: {actualAudioCubes} (from PitchAnalyzer)");
-        DebugLog($"  Visual audio time: {visualAudioTime:F3}s");
-        DebugLog($"  Requested silence: {requestedSilenceDuration:F3}s");
-        DebugLog($"  Requested silence cubes: {requestedSilenceCubes}");
-        DebugLog($"  Total cubes: {totalCubes}");
-        DebugLog($"  Visual total time: {visualTotalTime:F3}s");
-        DebugLog($"  Quantized silence: {quantizedSilenceDuration:F3}s");
-        DebugLog($"  Analysis interval: {analysisInterval:F3}s");
-        
-        // Verify perfect sync
-        float actualTotalTime = nativeClip.length + quantizedSilenceDuration;
-        
-        DebugLog($"  VERIFICATION: Visual total time: {visualTotalTime:F3}s");
-        DebugLog($"  VERIFICATION: Actual total time: {actualTotalTime:F3}s");
-        DebugLog($"  VERIFICATION: Perfect match: {Mathf.Approximately(visualTotalTime, actualTotalTime)}");
-        DebugLog($"  VERIFICATION: Time difference: {(actualTotalTime - visualTotalTime):F6}s");
-    }
-
-    // NEW: Public method to change silence at runtime
-    public void SetSilenceDuration(float newSilenceDuration)
-    {
-        requestedSilenceDuration = newSilenceDuration;
-        
-        if (isChorusingActive)
-        {
-            CalculateQuantizedSilence();
-            DebugLog($"Silence updated during playback to: {quantizedSilenceDuration:F3}s");
+            nativeAudioSource.Play();
+            hasAudioStarted = true;
+            DebugLog("?? Initial audio triggered by visualizer!");
         }
     }
 
-    // NEW: Update-based quantized silence logic with detailed timing analysis
-    private void UpdateQuantizedAudioSilenceLogic()
+    private void TriggerAudioLoop()
     {
-        if (nativeAudioSource == null || nativeClip == null) return;
-
-        float currentTime = Time.time;
-        
-        // CRITICAL FIX: Use visual-based timing for perfect sync
-        float visualAudioTime = (nativePitchData?.Count ?? 0) * analysisInterval;
-        float visualTotalLoopTime = visualAudioTime + quantizedSilenceDuration;
-
-        if (!isInSilencePeriod)
+        if (hasAudioStarted && nativeAudioSource != null)
         {
-            // FIXED: Use visual audio time, not actual clip length
-            float visualAudioEndTime = lastLoopEndTime - nativeClip.length + visualAudioTime;
-            
-            if (currentTime >= visualAudioEndTime)
-            {
-                // ENHANCED: Measure actual vs expected timing
-                float actualSilenceStartTime = currentTime;
-                float expectedSilenceStartTime = chorusingStartTime + (loopCount * visualTotalLoopTime) + visualAudioTime;
-                float silenceStartDrift = actualSilenceStartTime - expectedSilenceStartTime;
-                totalDriftAccumulated += silenceStartDrift;
-                
-                // Enter QUANTIZED silence period
-                isInSilencePeriod = true;
-                silenceStartTime = currentTime;
-                
-                DebugLog($"?? ENTERING SILENCE - DRIFT ANALYSIS:");
-                DebugLog($"  Loop #{loopCount} - Audio clip length: {nativeClip.length:F3}s");
-                DebugLog($"  Visual audio time: {visualAudioTime:F3}s");
-                DebugLog($"  Visual total loop: {visualTotalLoopTime:F3}s");
-                DebugLog($"  Expected silence start: {expectedSilenceStartTime:F3}s");
-                DebugLog($"  Actual silence start: {actualSilenceStartTime:F3}s");
-                DebugLog($"  THIS LOOP drift: {silenceStartDrift:F3}s");
-                DebugLog($"  TOTAL accumulated drift: {totalDriftAccumulated:F3}s");
-                DebugLog($"  Audio was playing for: {(currentTime - (lastLoopEndTime - nativeClip.length)):F3}s");
-                DebugLog($"  AudioSource.time when stopped: {nativeAudioSource.time:F3}s");
-            }
-        }
-        else
-        {
-            // Check if QUANTIZED silence period should end
-            if (currentTime >= silenceStartTime + quantizedSilenceDuration)
-            {
-                // ENHANCED: Measure audio restart timing
-                float actualRestartTime = currentTime;
-                float expectedRestartTime = chorusingStartTime + ((loopCount + 1) * visualTotalLoopTime);
-                float restartDrift = actualRestartTime - expectedRestartTime;
-                
-                // FIXED: Next loop starts at quantized time
-                isInSilencePeriod = false;
-                
-                // CRITICAL: Log BEFORE starting audio to avoid timing confusion
-                float timeBeforePlay = Time.time;
-                nativeAudioSource.Play();
-                float timeAfterPlay = Time.time;
-                float audioStartDelay = timeAfterPlay - timeBeforePlay;
-                
-                // CRITICAL: Use visual total loop time for next loop timing
-                lastLoopEndTime = currentTime + nativeClip.length;
-                loopCount++;
-                
-                DebugLog($"?? STARTING AUDIO - DRIFT ANALYSIS:");
-                DebugLog($"  Loop #{loopCount} - Silence duration: {quantizedSilenceDuration:F3}s");
-                DebugLog($"  Expected restart time: {expectedRestartTime:F3}s");
-                DebugLog($"  Actual restart time: {actualRestartTime:F3}s");
-                DebugLog($"  RESTART drift: {restartDrift:F3}s");
-                DebugLog($"  Audio.Play() delay: {audioStartDelay:F6}s");
-                DebugLog($"  Next loop will end at: {lastLoopEndTime:F3}s");
-                DebugLog($"  Visual timing: {visualTotalLoopTime:F3}s per loop");
-                DebugLog($"  TOTAL drift after {loopCount} loops: {totalDriftAccumulated:F3}s");
-            }
+            nativeAudioSource.Play();
+            DebugLog("?? Audio loop triggered by visualizer!");
         }
     }
 
     public void StopChorusing()
     {
         isChorusingActive = false;
-        
-        // SIMPLE: Just reset flags
-        isInSilencePeriod = false;
 
         if (micAnalysis != null)
         {
@@ -275,6 +128,13 @@ public class ChorusingManager : MonoBehaviour
         if (nativeAudioSource != null)
         {
             nativeAudioSource.Stop();
+        }
+
+        // Unsubscribe from events
+        if (nativeVisualizer != null)
+        {
+            nativeVisualizer.OnInitialAudioTrigger -= TriggerInitialAudio;
+            nativeVisualizer.OnAudioLoopTrigger -= TriggerAudioLoop;
         }
 
         // Clear visualizations
@@ -288,73 +148,64 @@ public class ChorusingManager : MonoBehaviour
             nativeVisualizer.ClearAll();
         }
 
+        hasAudioStarted = false;
         DebugLog("Chorusing stopped!");
     }
 
-    // ENHANCED: More detailed visualization timing - CORRECTED
-    private void UpdateNativeVisualization()
+    // NEW: Simple visualization update - just pass elapsed time
+    private void UpdateSimpleVisualization()
     {
-        if (nativeVisualizer != null && nativePitchData != null && nativeAudioSource != null)
+        if (nativeVisualizer != null && nativePitchData != null)
         {
-            float playbackTime;
-            // CRITICAL FIX: Use the SAME calculation as in CalculateQuantizedSilence
-            int actualAudioCubes = nativePitchData.Count;
-            int requestedSilenceCubes = Mathf.RoundToInt(requestedSilenceDuration / analysisInterval);
-            
-            // Ensure minimum 1 silence cube (same logic as CalculateQuantizedSilence)
-            if (requestedSilenceCubes == 0)
-            {
-                requestedSilenceCubes = 1;
-            }
-            
-            int totalCubes = actualAudioCubes + requestedSilenceCubes;
-            float visualAudioTime = actualAudioCubes * analysisInterval;
-            float visualTotalLoop = totalCubes * analysisInterval;
-            
-            // Handle negative silence adjustment (same logic as CalculateQuantizedSilence)
-            if ((visualTotalLoop - nativeClip.length) < 0f)
-            {
-                totalCubes += 1;
-                visualTotalLoop = totalCubes * analysisInterval;
-            }
+            // Ultra-simple: just pass elapsed time since start
+            float elapsedTime = Time.time - chorusingStartTime;
+            nativeVisualizer.UpdateNativeTrackPlayback(elapsedTime, nativePitchData);
+        }
+    }
 
-            if (isInSilencePeriod)
-            {
-                // During QUANTIZED silence: extend beyond audio duration
-                float silenceElapsed = Time.time - silenceStartTime;
-                playbackTime = visualAudioTime + silenceElapsed;
-            }
-            else
-            {
-                // During audio: use actual audio time
-                playbackTime = nativeAudioSource.time;
-            }
+    // KEPT: Quantized silence calculation (still needed for visual sync)
+    private void CalculateQuantizedSilence()
+    {
+        if (nativeClip == null || nativePitchData == null)
+        {
+            DebugLog("No native clip or pitch data available for quantization calculation");
+            quantizedSilenceDuration = 0f;
+            return;
+        }
 
-            nativeVisualizer.UpdateNativeTrackPlayback(playbackTime, nativePitchData);
-            
-            // ENHANCED: More frequent and detailed debug timing
-            if (enableDebugLogging && Time.time % 1f < 0.1f) // Every 1 second instead of 2
-            {
-                // FIXED: Calculate expected playback time correctly for current loop
-                float totalElapsed = Time.time - chorusingStartTime;
-                float loopElapsed = totalElapsed % visualTotalLoop;
-                float expectedPlaybackTime = loopElapsed; // This is the time within the current loop
-                
-                float timingDifference = playbackTime - expectedPlaybackTime;
-                
-                DebugLog($"?? VISUALIZATION TIMING:");
-                DebugLog($"  AudioSource.isPlaying: {nativeAudioSource.isPlaying}");
-                DebugLog($"  In silence period: {isInSilencePeriod}");
-                DebugLog($"  Actual playback time: {playbackTime:F3}s");
-                DebugLog($"  Expected playback time: {expectedPlaybackTime:F3}s");
-                DebugLog($"  Visual total loop: {visualTotalLoop:F3}s");
-                DebugLog($"  Total elapsed: {totalElapsed:F3}s");
-                DebugLog($"  Loop elapsed: {loopElapsed:F3}s");
-                DebugLog($"  Timing difference: {timingDifference:F3}s");
-                DebugLog($"  Elapsed since start: {(Time.time - chorusingStartTime):F1}s");
-                DebugLog($"  Current loop: {loopCount}");
-                DebugLog($"  VERIFICATION: Total cubes: {totalCubes}, Calculated loop time: {visualTotalLoop:F3}s");
-            }
+        int actualAudioCubes = nativePitchData.Count;
+        int requestedSilenceCubes = Mathf.RoundToInt(requestedSilenceDuration / analysisInterval);
+        
+        if (requestedSilenceCubes == 0)
+        {
+            requestedSilenceCubes = 1;
+            DebugLog("ANTI-DRIFT: Minimum 1 silence cube enforced");
+        }
+        
+        int totalCubes = actualAudioCubes + requestedSilenceCubes;
+        float visualAudioTime = actualAudioCubes * analysisInterval;
+        float visualTotalTime = totalCubes * analysisInterval;
+        float actualSilenceNeeded = visualTotalTime - nativeClip.length;
+        quantizedSilenceDuration = actualSilenceNeeded;
+        
+        if (quantizedSilenceDuration < 0f)
+        {
+            quantizedSilenceDuration += analysisInterval;
+            totalCubes += 1;
+            visualTotalTime = totalCubes * analysisInterval;
+        }
+        
+        DebugLog($"QUANTIZATION: Audio={actualAudioCubes} cubes, Silence={quantizedSilenceDuration:F3}s, Total={visualTotalTime:F3}s");
+    }
+
+    public void SetSilenceDuration(float newSilenceDuration)
+    {
+        requestedSilenceDuration = newSilenceDuration;
+        
+        if (isChorusingActive)
+        {
+            CalculateQuantizedSilence();
+            DebugLog($"Silence updated during playback to: {quantizedSilenceDuration:F3}s");
         }
     }
 
@@ -363,7 +214,6 @@ public class ChorusingManager : MonoBehaviour
         // Setup Event-Integration mit MicAnalysisRefactored
         if (micAnalysis != null)
         {
-            // Subscribe to pitch detection events
             micAnalysis.OnPitchDetected += OnUserPitchDetected;
             DebugLog("Subscribed to MicAnalysisRefactored events");
         }
@@ -392,10 +242,8 @@ public class ChorusingManager : MonoBehaviour
 
         DebugLog($"Pre-analyzing native recording: {nativeClip.name}");
 
-        // Use shared PitchAnalyzer with our analysis settings
         nativePitchData = PitchAnalyzer.PreAnalyzeAudioClip(nativeClip, analysisSettings, analysisInterval);
 
-        // Optional: Smoothing
         if (analysisSettings.useSmoothing)
         {
             nativePitchData = PitchAnalyzer.SmoothPitchData(nativePitchData, analysisSettings.historySize);
@@ -403,7 +251,6 @@ public class ChorusingManager : MonoBehaviour
 
         DebugLog($"Native recording analyzed: {nativePitchData.Count} data points");
 
-        // Debug: Show statistics
         if (enableDebugLogging)
         {
             var stats = PitchAnalyzer.CalculateStatistics(nativePitchData);
@@ -411,15 +258,12 @@ public class ChorusingManager : MonoBehaviour
         }
     }
 
-    // Event Handler für MicAnalysisRefactored
     private void OnUserPitchDetected(PitchDataPoint pitchData)
     {
         if (isChorusingActive && userVisualizer != null)
         {
-            // User visualizer uses its own settings for display
             userVisualizer.AddRealtimePitchData(pitchData);
             
-            // Debug output für interessante Events
             if (enableDebugLogging && pitchData.HasPitch)
             {
                 DebugLog($"User pitch: {pitchData.frequency:F1}Hz at {pitchData.timestamp:F2}s");
@@ -434,7 +278,6 @@ public class ChorusingManager : MonoBehaviour
         PreAnalyzeNativeRecording();
     }
 
-    // ADDED: Helper methods to access visualizer settings (read-only)
     public VisualizationSettings GetUserVisualizationSettings()
     {
         return userVisualizer != null ? userVisualizer.GetSettings() : null;
@@ -447,12 +290,10 @@ public class ChorusingManager : MonoBehaviour
 
     // Public getters
     public bool IsChorusingActive => isChorusingActive;
+    public bool HasAudioStarted => hasAudioStarted;
     public float GetNativePlaybackTime() => nativeAudioSource != null ? nativeAudioSource.time : 0f;
     public List<PitchDataPoint> GetNativePitchData() => nativePitchData;
-
-    // NEW: Getter for quantized silence info
     public float GetQuantizedSilenceDuration() => quantizedSilenceDuration;
-    public bool IsInSilencePeriod() => isInSilencePeriod;
 
     // Debug Methods
     private void DebugLog(string message)
@@ -469,6 +310,12 @@ public class ChorusingManager : MonoBehaviour
         if (micAnalysis != null)
         {
             micAnalysis.OnPitchDetected -= OnUserPitchDetected;
+        }
+        
+        if (nativeVisualizer != null)
+        {
+            nativeVisualizer.OnInitialAudioTrigger -= TriggerInitialAudio;
+            nativeVisualizer.OnAudioLoopTrigger -= TriggerAudioLoop;
         }
     }
 }

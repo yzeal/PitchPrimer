@@ -732,6 +732,8 @@ MonoBehaviour:
     saturation: 0.8
     brightness: 1
     analysisInterval: 0.1
+    initialAudioTriggerOffset: 2
+    loopAudioTriggerOffset: 1
 --- !u!1 &521007459
 GameObject:
   m_ObjectHideFlags: 0
@@ -1420,6 +1422,8 @@ MonoBehaviour:
     saturation: 0.8
     brightness: 1
     analysisInterval: 0.1
+    initialAudioTriggerOffset: 2
+    loopAudioTriggerOffset: 1
   showRuntimeInfo: 1
 --- !u!4 &897609204
 Transform:
@@ -1777,6 +1781,8 @@ MonoBehaviour:
     saturation: 0.5
     brightness: 0.7
     analysisInterval: 0.1
+    initialAudioTriggerOffset: 10
+    loopAudioTriggerOffset: 4
 --- !u!4 &1109803072
 Transform:
   m_ObjectHideFlags: 0
@@ -1851,7 +1857,6 @@ MonoBehaviour:
     enableDebugLogging: 1
   nativeClip: {fileID: 8300000, guid: 72c1dc44a3f3adc43addb5d17cbeaebe, type: 3}
   analysisInterval: 0.1
-  autoLoop: 1
   requestedSilenceDuration: 0.6
   quantizedSilenceDuration: 0
   enableDebugLogging: 1

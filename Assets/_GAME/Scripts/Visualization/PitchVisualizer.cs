@@ -5,7 +5,7 @@ using System.Linq;
 // COPILOT CONTEXT: Modular visualization system for pitch data
 // Supports both real-time and pre-rendered visualizations
 // Designed for chorusing with dual-track display
-// UPDATED: Personal pitch range system for individual voice calibration (NO automatic adaptation)
+// UPDATED: Event-based audio triggering system
 
 [System.Serializable]
 public class PersonalPitchRange
@@ -91,6 +91,13 @@ public class VisualizationSettings
     
     [Header("Synchronization")]
     public float analysisInterval = 0.1f;
+    
+    [Header("Audio Trigger Settings")]
+    [Tooltip("Cubes before focal point to trigger initial audio")]
+    public int initialAudioTriggerOffset = 2;
+    
+    [Tooltip("Cubes before focal point to trigger audio loops")]
+    public int loopAudioTriggerOffset = 1;
 }
 
 // NEW: Repetition data structure
@@ -114,6 +121,10 @@ public class PitchVisualizer : MonoBehaviour
 {
     [SerializeField] private VisualizationSettings settings;
     
+    // NEW: Audio trigger events
+    public System.Action OnAudioLoopTrigger;
+    public System.Action OnInitialAudioTrigger;
+    
     // User Recording (unchanged)
     private Queue<GameObject> activeCubes;
     
@@ -134,6 +145,11 @@ public class PitchVisualizer : MonoBehaviour
     private float nativeClipDuration = 0f;
     private GameObject focalIndicator;
     private float focalPointLocalX = 0f;
+    
+    // NEW: Audio trigger tracking
+    private bool hasTriggeredInitialAudio = false;
+    private HashSet<int> triggeredLoops = new HashSet<int>();
+    private float totalElapsedCubes = 0f; // Track scrolling progress
     
     // FIXED: Add missing variable for legacy compatibility
     private int currentPlaybackIndex = 0;
@@ -499,7 +515,20 @@ public class PitchVisualizer : MonoBehaviour
         ClearNativeRepetitions();
         CreateInitialRepetitions(silenceDuration);
         
+        // NEW: Reset audio trigger tracking
+        ResetAudioTriggers();
+        
         lastPlaybackTime = 0f;
+    }
+    
+    // NEW: Reset audio triggers for new sessions
+    public void ResetAudioTriggers()
+    {
+        hasTriggeredInitialAudio = false;
+        triggeredLoops.Clear();
+        totalElapsedCubes = 0f;
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Audio triggers reset");
     }
     
     private void CreateInitialRepetitions(float silenceDuration)
@@ -597,6 +626,48 @@ public class PitchVisualizer : MonoBehaviour
                     cube.transform.localPosition = pos;
                 }
             }
+        }
+        
+        // NEW: Update total elapsed and check for audio triggers
+        totalElapsedCubes += 1f; // One cube scrolled
+        CheckForAudioTriggers();
+    }
+    
+    // NEW: Audio trigger detection system
+    private void CheckForAudioTriggers()
+    {
+        if (!isNativeTrack) return; // Only for native tracks
+        
+        // Check for initial audio trigger
+        if (!hasTriggeredInitialAudio)
+        {
+            if (totalElapsedCubes >= settings.initialAudioTriggerOffset)
+            {
+                hasTriggeredInitialAudio = true;
+                OnInitialAudioTrigger?.Invoke();
+                Debug.Log($"[PitchVisualizer] {gameObject.name} Initial audio triggered at {totalElapsedCubes:F1} cubes");
+            }
+        }
+        
+        // Check for loop triggers
+        CheckForLoopTriggers();
+    }
+    
+    private void CheckForLoopTriggers()
+    {
+        // Calculate cubes per loop
+        float cubesPerLoop = repetitionTotalLength / settings.cubeSpacing;
+        
+        // Calculate which loop we're approaching (considering the offset)
+        float adjustedCubes = totalElapsedCubes + settings.loopAudioTriggerOffset;
+        int approachingLoop = Mathf.FloorToInt(adjustedCubes / cubesPerLoop);
+        
+        // Trigger if we haven't triggered this loop yet and it's not the initial loop
+        if (approachingLoop > 0 && !triggeredLoops.Contains(approachingLoop))
+        {
+            triggeredLoops.Add(approachingLoop);
+            OnAudioLoopTrigger?.Invoke();
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Loop {approachingLoop} triggered at {totalElapsedCubes:F1} cubes (adjusted: {adjustedCubes:F1})");
         }
     }
     
@@ -847,6 +918,9 @@ public class PitchVisualizer : MonoBehaviour
         
         originalNativePitchData = null;
         nativeClipDuration = 0f;
+        
+        // NEW: Reset audio triggers
+        ResetAudioTriggers();
     }
     
     void OnDestroy()
