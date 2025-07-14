@@ -291,21 +291,37 @@ public class ChorusingManager : MonoBehaviour
         DebugLog("Chorusing stopped!");
     }
 
-    // ENHANCED: More detailed visualization timing
+    // ENHANCED: More detailed visualization timing - CORRECTED
     private void UpdateNativeVisualization()
     {
         if (nativeVisualizer != null && nativePitchData != null && nativeAudioSource != null)
         {
             float playbackTime;
-            // CRITICAL FIX: Use consistent visual timing throughout
-            float visualTotalLoop = (nativePitchData.Count * analysisInterval) + quantizedSilenceDuration;
+            // CRITICAL FIX: Use the SAME calculation as in CalculateQuantizedSilence
+            int actualAudioCubes = nativePitchData.Count;
+            int requestedSilenceCubes = Mathf.RoundToInt(requestedSilenceDuration / analysisInterval);
+            
+            // Ensure minimum 1 silence cube (same logic as CalculateQuantizedSilence)
+            if (requestedSilenceCubes == 0)
+            {
+                requestedSilenceCubes = 1;
+            }
+            
+            int totalCubes = actualAudioCubes + requestedSilenceCubes;
+            float visualAudioTime = actualAudioCubes * analysisInterval;
+            float visualTotalLoop = totalCubes * analysisInterval;
+            
+            // Handle negative silence adjustment (same logic as CalculateQuantizedSilence)
+            if ((visualTotalLoop - nativeClip.length) < 0f)
+            {
+                totalCubes += 1;
+                visualTotalLoop = totalCubes * analysisInterval;
+            }
 
             if (isInSilencePeriod)
             {
                 // During QUANTIZED silence: extend beyond audio duration
                 float silenceElapsed = Time.time - silenceStartTime;
-                // FIXED: Use visual audio time instead of actual clip length
-                float visualAudioTime = nativePitchData.Count * analysisInterval;
                 playbackTime = visualAudioTime + silenceElapsed;
             }
             else
@@ -319,7 +335,11 @@ public class ChorusingManager : MonoBehaviour
             // ENHANCED: More frequent and detailed debug timing
             if (enableDebugLogging && Time.time % 1f < 0.1f) // Every 1 second instead of 2
             {
-                float expectedPlaybackTime = (Time.time - chorusingStartTime) % visualTotalLoop;
+                // FIXED: Calculate expected playback time correctly for current loop
+                float totalElapsed = Time.time - chorusingStartTime;
+                float loopElapsed = totalElapsed % visualTotalLoop;
+                float expectedPlaybackTime = loopElapsed; // This is the time within the current loop
+                
                 float timingDifference = playbackTime - expectedPlaybackTime;
                 
                 DebugLog($"?? VISUALIZATION TIMING:");
@@ -328,11 +348,12 @@ public class ChorusingManager : MonoBehaviour
                 DebugLog($"  Actual playback time: {playbackTime:F3}s");
                 DebugLog($"  Expected playback time: {expectedPlaybackTime:F3}s");
                 DebugLog($"  Visual total loop: {visualTotalLoop:F3}s");
-                // CRITICAL FIX: Use same visual timing for comparison
-                DebugLog($"  Audio total loop: {visualTotalLoop:F3}s"); // Was: {(nativeClip.length + quantizedSilenceDuration):F3}s
+                DebugLog($"  Total elapsed: {totalElapsed:F3}s");
+                DebugLog($"  Loop elapsed: {loopElapsed:F3}s");
                 DebugLog($"  Timing difference: {timingDifference:F3}s");
                 DebugLog($"  Elapsed since start: {(Time.time - chorusingStartTime):F1}s");
                 DebugLog($"  Current loop: {loopCount}");
+                DebugLog($"  VERIFICATION: Total cubes: {totalCubes}, Calculated loop time: {visualTotalLoop:F3}s");
             }
         }
     }
