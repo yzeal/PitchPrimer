@@ -160,7 +160,6 @@ public class PitchVisualizer : MonoBehaviour
     void Awake()
     { 
         EnsureInitialization();
-        InitializePersonalPitchRange();
     }
     
     void Start()
@@ -168,28 +167,6 @@ public class PitchVisualizer : MonoBehaviour
         EnsureInitialization();
         UpdateFocalPoint();
         CreateFocalIndicator();
-    }
-    
-    private void InitializePersonalPitchRange()
-    {
-        if (settings.pitchRange == null)
-        {
-            settings.pitchRange = new PersonalPitchRange();
-        }
-        
-        // Set sensible defaults based on track type
-        if (isNativeTrack)
-        {
-            settings.pitchRange.personalMinPitch = 120f;
-            settings.pitchRange.personalMaxPitch = 280f;
-        }
-        else
-        {
-            settings.pitchRange.personalMinPitch = 100f;
-            settings.pitchRange.personalMaxPitch = 350f;
-        }
-        
-        Debug.Log($"[PitchVisualizer] {gameObject.name} Personal pitch range initialized: {settings.pitchRange.personalMinPitch:F0}-{settings.pitchRange.personalMaxPitch:F0}Hz");
     }
     
     // Manual calibration methods
@@ -441,7 +418,6 @@ public class PitchVisualizer : MonoBehaviour
     public void SetAsNativeTrack(bool isNative)
     {
         isNativeTrack = isNative;
-        InitializePersonalPitchRange();
     }
     
     public void SetAnalysisInterval(float interval)
