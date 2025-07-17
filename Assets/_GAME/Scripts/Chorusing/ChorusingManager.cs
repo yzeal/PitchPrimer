@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq; // NEW: Für LINQ-Operationen
 
 // COPILOT CONTEXT: Main controller for chorusing exercises
 // Coordinates native recording playback with user microphone input
@@ -269,11 +270,93 @@ public class ChorusingManager : MonoBehaviour
 
         DebugLog($"Native recording analyzed: {nativePitchData.Count} data points");
 
+        // NEW: Debug logging für Pitch-Range bei verschiedenen Confidence-Thresholds
         if (enableDebugLogging)
         {
+            LogPitchRangeByConfidence();
+            
             var stats = PitchAnalyzer.CalculateStatistics(nativePitchData);
             DebugLog($"Native recording stats: {stats}");
         }
+    }
+
+    // NEW: Debug logging für Pitch-Range bei verschiedenen Confidence-Thresholds
+    private void LogPitchRangeByConfidence()
+    {
+        if (nativePitchData == null || nativePitchData.Count == 0)
+            return;
+        
+        DebugLog("=== PITCH RANGE ANALYSIS BY CONFIDENCE THRESHOLDS ===");
+        
+        // Test verschiedene Confidence-Thresholds
+        float[] thresholds = { 0.0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f };
+        
+        foreach (float threshold in thresholds)
+        {
+            var validPitches = nativePitchData
+                .Where(p => p.HasPitch && p.confidence >= threshold)
+                .Select(p => p.frequency)
+                .ToList();
+            
+            if (validPitches.Count > 0)
+            {
+                float minPitch = validPitches.Min();
+                float maxPitch = validPitches.Max();
+                float avgPitch = validPitches.Average();
+                float range = maxPitch - minPitch;
+                
+                // FIXED: Use Count property instead of Count() method
+                int totalValidPitches = nativePitchData.Where(p => p.HasPitch).Count();
+                float coverage = (float)validPitches.Count / totalValidPitches;
+                
+                DebugLog($"  Confidence >= {threshold:F1}: " +
+                         $"Min={minPitch:F1}Hz, Max={maxPitch:F1}Hz, " +
+                         $"Avg={avgPitch:F1}Hz, Range={range:F1}Hz, " +
+                         $"Samples={validPitches.Count}/{nativePitchData.Count} ({coverage * 100f:F1}%)");
+            }
+            else
+            {
+                DebugLog($"  Confidence >= {threshold:F1}: No valid pitch data");
+            }
+        }
+        
+        // Zusätzliche Statistiken
+        var allValidPitches = nativePitchData.Where(p => p.HasPitch).ToList();
+        if (allValidPitches.Count > 0)
+        {
+            var confidenceStats = allValidPitches.Select(p => p.confidence);
+            DebugLog($"  Overall confidence: Min={confidenceStats.Min():F3}, " +
+                     $"Max={confidenceStats.Max():F3}, Avg={confidenceStats.Average():F3}");
+            
+            // Empfehlungen für gute Thresholds
+            var mediumConfidencePitches = allValidPitches.Where(p => p.confidence >= 0.3f).ToList();
+            var highConfidencePitches = allValidPitches.Where(p => p.confidence >= 0.5f).ToList();
+            var veryHighConfidencePitches = allValidPitches.Where(p => p.confidence >= 0.7f).ToList();
+            
+            DebugLog($"  THRESHOLD RECOMMENDATIONS:");
+            DebugLog($"    0.3: Keeps {mediumConfidencePitches.Count}/{allValidPitches.Count} " +
+                     $"({mediumConfidencePitches.Count * 100f / allValidPitches.Count:F1}%) - Good balance");
+            DebugLog($"    0.5: Keeps {highConfidencePitches.Count}/{allValidPitches.Count} " +
+                     $"({highConfidencePitches.Count * 100f / allValidPitches.Count:F1}%) - High quality");
+            DebugLog($"    0.7: Keeps {veryHighConfidencePitches.Count}/{allValidPitches.Count} " +
+                     $"({veryHighConfidencePitches.Count * 100f / allValidPitches.Count:F1}%) - Very high quality");
+            
+            // Intelligente Empfehlung basierend auf Datenqualität
+            if (mediumConfidencePitches.Count >= allValidPitches.Count * 0.8f)
+            {
+                DebugLog($"  RECOMMENDATION: Use threshold 0.3 (retains 80%+ of data with good quality)");
+            }
+            else if (highConfidencePitches.Count >= allValidPitches.Count * 0.6f)
+            {
+                DebugLog($"  RECOMMENDATION: Use threshold 0.5 (retains 60%+ of data with high quality)");
+            }
+            else
+            {
+                DebugLog($"  RECOMMENDATION: Use threshold 0.2 or lower (audio quality may be poor)");
+            }
+        }
+        
+        DebugLog("=== END PITCH RANGE ANALYSIS ===");
     }
 
     private void OnUserPitchDetected(PitchDataPoint pitchData)

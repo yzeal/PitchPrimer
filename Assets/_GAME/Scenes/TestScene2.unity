@@ -1758,11 +1758,11 @@ MonoBehaviour:
     showFocalIndicator: 1
     focalIndicatorPrefab: {fileID: 5357262997562138383, guid: f2b8e73c309667a4c93a4b6bdb04ae27, type: 3}
     pitchRange:
-      personalMinPitch: 175
-      personalMaxPitch: 423
+      personalMinPitch: 305
+      personalMaxPitch: 400
       minCubeHeight: 0.1
-      maxCubeHeight: 5
-      outOfRangeMode: 0
+      maxCubeHeight: 10
+      outOfRangeMode: 2
       outOfRangeColor: {r: 1, g: 0, b: 0, a: 1}
       showRangeDebug: 0
     playedBrightness: 1
