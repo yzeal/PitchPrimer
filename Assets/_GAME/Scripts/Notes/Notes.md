@@ -83,7 +83,142 @@
 ## Projekt-Überblick
 Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent und Rhythmus durch Chorusing-Übungen (gleichzeitiges Sprechen mit nativen Aufnahmen).
 
-## LATEST UPDATE - Day 7: InitialAudioDelay System Implementation 🎵
+## LATEST UPDATE - Day 8: Code Cleanup & Debug Features 🔧
+
+### ✅ CRITICAL FIX: Personal Pitch Range Overwrite Issue Solved
+**MAJOR BUG RESOLVED:** Editor pitch range values no longer overwritten at runtime
+- **Problem identified:** `InitializePersonalPitchRange()` method was overwriting user-configured values
+- **Root cause:** Method called in `Awake()` and `SetAsNativeTrack()` unconditionally overwrote Editor settings
+- **Solution:** Complete removal of problematic method - serves no purpose with Unity's serialization
+
+#### The Problem - Over-Engineered "Helpful" Code:
+
+    // ❌ BAD: This overwrote Editor values every time
+    private void InitializePersonalPitchRange()
+    {
+        if (isNativeTrack)
+        {
+            settings.pitchRange.personalMinPitch = 120f; // Overwrites Editor!
+            settings.pitchRange.personalMaxPitch = 280f; // Overwrites Editor!
+        }
+        else
+        {
+            settings.pitchRange.personalMinPitch = 100f; // Overwrites Editor!
+            settings.pitchRange.personalMaxPitch = 350f; // Overwrites Editor!
+        }
+    }
+
+#### The Fix - Trust Unity's Serialization:
+
+    // ✅ GOOD: Unity handles this automatically
+    void Awake()
+    { 
+        EnsureInitialization();
+        // REMOVED: InitializePersonalPitchRange(); - Unnecessary and harmful!
+    }
+    
+    public void SetAsNativeTrack(bool isNative)
+    {
+        isNativeTrack = isNative;
+        // REMOVED: InitializePersonalPitchRange(); - Unnecessary and harmful!
+    }
+
+#### Why This Works Better:
+- **Unity serialization:** Automatically creates `PersonalPitchRange` objects with class defaults
+- **Editor persistence:** User changes in Inspector are automatically saved
+- **Class defaults:** Initial values (100f-300f) are sensible for all use cases
+- **No code needed:** The simpler approach is more reliable
+
+### ✅ NEW FEATURE: Native Recording Pitch Analysis Debug System
+**ENHANCED DEVELOPMENT TOOLS:** Comprehensive confidence threshold analysis for pitch curve optimization
+- **Multi-threshold analysis:** Tests 10 different confidence levels (0.0 to 0.9)
+- **Statistical breakdown:** Min/Max/Average pitch at each threshold
+- **Data retention analysis:** Shows how much data survives each threshold
+- **Intelligent recommendations:** Suggests optimal thresholds based on data quality
+
+#### Implementation in ChorusingManager:
+
+    // NEW: Debug logging for Pitch-Range at various Confidence-Thresholds
+    private void LogPitchRangeByConfidence()
+    {
+        float[] thresholds = { 0.0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f };
+        
+        foreach (float threshold in thresholds)
+        {
+            var validPitches = nativePitchData
+                .Where(p => p.HasPitch && p.confidence >= threshold)
+                .Select(p => p.frequency)
+                .ToList();
+            
+            // Analysis: Min, Max, Average, Range, Sample retention
+        }
+    }
+
+#### Example Debug Output:
+
+    === PITCH RANGE ANALYSIS BY CONFIDENCE THRESHOLDS ===
+    Confidence >= 0.0: Min=120.5Hz, Max=285.3Hz, Avg=180.2Hz, Range=164.8Hz, Samples=156/200 (78.0%)
+    Confidence >= 0.3: Min=125.2Hz, Max=280.1Hz, Avg=182.5Hz, Range=154.9Hz, Samples=132/200 (66.0%)
+    Confidence >= 0.5: Min=128.8Hz, Max=275.6Hz, Avg=184.1Hz, Range=146.8Hz, Samples=118/200 (59.0%)
+    RECOMMENDATION: Use threshold 0.3 (retains 80%+ of data with good quality)
+
+### ✅ TECHNICAL INSIGHT: Pitch vs. Volume Independence Confirmed
+**QUESTION ANSWERED:** Does audio volume affect cube height in pitch visualization?
+- **Answer:** NO - Code analysis confirms pitch and volume are completely independent
+- **Cube height calculation:** Based ONLY on `pitchData.frequency`, NOT `pitchData.audioLevel`
+- **Correlation perception:** Likely due to natural speech patterns (louder tones often higher pitch)
+- **Scientifically correct:** Implementation properly separates pitch and amplitude analysis
+
+#### Code Evidence:
+
+    private float CalculatePitchScale(PitchDataPoint pitchData)
+    {
+        float pitch = pitchData.frequency; // ✅ ONLY frequency used
+        // ❌ audioLevel is NOT used for height calculation
+        
+        float normalizedPitch = (pitch - range.personalMinPitch) / (range.personalMaxPitch - range.personalMinPitch);
+        return Mathf.Lerp(range.minCubeHeight, range.maxCubeHeight, normalizedPitch);
+    }
+
+### 🎯 DEVELOPMENT WORKFLOW IMPROVEMENTS
+**BETTER DEBUGGING:** Enhanced tools for pitch curve analysis and development
+- **Confidence analysis:** Understand audio quality vs. data retention trade-offs
+- **Threshold optimization:** Data-driven approach to confidence filtering
+- **Clean codebase:** Removed unnecessary initialization methods
+- **Trust Unity:** Leverage Unity's serialization instead of custom initialization
+
+### 🏗️ ARCHITECTURE STATE AFTER CLEANUP
+
+#### PitchVisualizer (Simplified):
+- **Removed InitializePersonalPitchRange():** No longer overwrites Editor values
+- **Clean initialization:** Unity's serialization handles PersonalPitchRange creation
+- **Simplified lifecycle:** `Awake()` and `SetAsNativeTrack()` no longer call removed method
+- **Preserved functionality:** All manual calibration methods (`SetMaleVoiceRange()`, etc.) still work
+
+#### ChorusingManager (Enhanced):
+- **Added LogPitchRangeByConfidence():** Comprehensive pitch analysis debugging
+- **LINQ integration:** Added `using System.Linq` for data analysis
+- **Conditional execution:** Debug analysis only runs when `enableDebugLogging = true`
+- **Statistical insights:** Multi-threshold analysis with intelligent recommendations
+
+### 🎯 SUCCESS CRITERIA MET
+**CLEAN CODE & BETTER TOOLS:** Major improvements in maintainability and debugging
+- **Bug eliminated:** Personal pitch range values persist correctly ✅
+- **Editor workflow improved:** User settings no longer mysteriously overwritten ✅
+- **Debug tools enhanced:** Comprehensive confidence threshold analysis ✅
+- **Code simplified:** Removed unnecessary initialization methods ✅
+- **Scientific accuracy confirmed:** Pitch-volume independence verified ✅
+
+### 📚 LESSONS LEARNED: Over-Engineering vs. Simplicity
+- **Trust the framework:** Unity's serialization often works better than custom init
+- **Editor-first design:** Respect user configurations in Inspector
+- **Debug-driven development:** Comprehensive analysis tools improve decision making
+- **Question assumptions:** Natural correlations (pitch-volume) can mislead developers
+- **Simple is better:** Removing code can be more valuable than adding it
+
+**STATUS:** Code cleanup completed, debugging tools enhanced, unnecessary complexity removed! 🚀
+
+## Day 7: InitialAudioDelay System Implementation 🎵
 
 ### ✅ MAJOR IMPROVEMENT: InitialAudioDelay System
 **PERFECT FIRST-TIME SYNC:** Audio starts immediately, visuals delayed to compensate for Unity audio latency
