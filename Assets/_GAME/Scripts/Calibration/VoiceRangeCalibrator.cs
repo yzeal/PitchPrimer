@@ -12,7 +12,7 @@ public class VoiceRangeCalibrator : MonoBehaviour
     [SerializeField] private float phraseDuration = 5f;
     
     [Header("Audio Analysis")]
-    [SerializeField] private MicAnalysis micAnalysis;
+    [SerializeField] private MicAnalysisRefactored micAnalysis;  // ? UPDATED: Use refactored version
     
     [Header("UI References")]
     [SerializeField] private TMPro.TextMeshProUGUI instructionText;
@@ -20,11 +20,15 @@ public class VoiceRangeCalibrator : MonoBehaviour
     [SerializeField] private UnityEngine.UI.Slider progressSlider;
     [SerializeField] private UnityEngine.UI.Button startButton;
     [SerializeField] private UnityEngine.UI.Button skipButton;
-    [SerializeField] private UnityEngine.UI.Button testButton; // For testing without full calibration
+    [SerializeField] private UnityEngine.UI.Button testButton;
     
     private List<float> calibrationPitches = new List<float>();
     private bool isCalibrating = false;
     private Coroutine calibrationCoroutine;
+    
+    // NEW: Store latest pitch data from events
+    private float latestPitch = 0f;
+    private float latestConfidence = 0f;
     
     // Calibration phrases optimized for pitch range detection
     private string[] calibrationPhrases = {
@@ -46,8 +50,27 @@ public class VoiceRangeCalibrator : MonoBehaviour
             
         if (testButton != null)
             testButton.onClick.AddListener(QuickTest);
+        
+        // ? NEW: Subscribe to pitch detection events
+        if (micAnalysis != null)
+        {
+            micAnalysis.OnPitchDetected += OnPitchDataReceived;
+        }
             
         ShowInitialInstructions();
+    }
+    
+    // ? NEW: Event handler for pitch data
+    private void OnPitchDataReceived(PitchDataPoint pitchData)
+    {
+        latestPitch = pitchData.frequency;
+        latestConfidence = pitchData.confidence;
+        
+        // Only collect during calibration and if pitch is detected with sufficient confidence
+        if (isCalibrating && pitchData.HasPitch && pitchData.confidence >= confidenceThreshold)
+        {
+            calibrationPitches.Add(pitchData.frequency);
+        }
     }
     
     private void ShowInitialInstructions()
@@ -80,6 +103,8 @@ public class VoiceRangeCalibrator : MonoBehaviour
         if (isCalibrating) return;
         
         calibrationPitches.Clear();
+        latestPitch = 0f;
+        latestConfidence = 0f;
         isCalibrating = true;
         
         if (startButton != null)
@@ -94,7 +119,7 @@ public class VoiceRangeCalibrator : MonoBehaviour
         if (progressSlider != null)
             progressSlider.gameObject.SetActive(true);
         
-        // Start microphone analysis
+        // ? UPDATED: Start analysis with refactored component
         if (micAnalysis != null)
         {
             micAnalysis.StartAnalysis();
@@ -148,15 +173,8 @@ public class VoiceRangeCalibrator : MonoBehaviour
             float phraseStartTime = Time.time;
             while (Time.time - phraseStartTime < phraseDuration)
             {
-                // Collect pitch data from microphone analysis
-                if (micAnalysis != null && micAnalysis.IsAnalyzing())
-                {
-                    float currentPitch = micAnalysis.GetCurrentPitch();
-                    if (currentPitch > 0)
-                    {
-                        calibrationPitches.Add(currentPitch);
-                    }
-                }
+                // ? UPDATED: Data collection now happens automatically via OnPitchDataReceived
+                // No need to manually call GetCurrentPitch() - events handle it
                 
                 // Update progress
                 totalTime = Time.time - sequenceStartTime;
@@ -262,12 +280,11 @@ public class VoiceRangeCalibrator : MonoBehaviour
     
     private void LoadMainScene()
     {
-        // Stop microphone
+        // ? UPDATED: Stop analysis with refactored component
         if (micAnalysis != null)
             micAnalysis.StopAnalysis();
         
-        // FIXED: Simplified scene loading without EditorBuildSettings dependency
-        string mainSceneName = "TestScene2"; // Change this to your main scene name
+        string mainSceneName = "TestScene2";
         
         try
         {
@@ -275,17 +292,35 @@ public class VoiceRangeCalibrator : MonoBehaviour
         }
         catch (System.ArgumentException)
         {
-            Debug.LogWarning($"[VoiceCalibrator] Scene '{mainSceneName}' not found in build settings. Please add it to File > Build Settings > Scenes in Build");
+            Debug.LogWarning($"[VoiceCalibrator] Scene '{mainSceneName}' not found in build settings.");
             Debug.LogWarning("[VoiceCalibrator] Staying in current scene");
         }
     }
     
     void OnDestroy()
     {
+        // ? NEW: Unsubscribe from events
+        if (micAnalysis != null)
+        {
+            micAnalysis.OnPitchDetected -= OnPitchDataReceived;
+            micAnalysis.StopAnalysis();
+        }
+        
         if (calibrationCoroutine != null)
             StopCoroutine(calibrationCoroutine);
-            
-        if (micAnalysis != null)
-            micAnalysis.StopAnalysis();
+    }
+    
+    // ? NEW: Optional debug display for current pitch
+    void OnGUI()
+    {
+        if (isCalibrating && micAnalysis != null)
+        {
+            GUILayout.BeginArea(new Rect(10, 10, 300, 100));
+            GUILayout.Label($"Latest Pitch: {latestPitch:F1} Hz");
+            GUILayout.Label($"Confidence: {latestConfidence:F3}");
+            GUILayout.Label($"Samples Collected: {calibrationPitches.Count}");
+            GUILayout.Label($"Is Analyzing: {micAnalysis.IsAnalyzing}");
+            GUILayout.EndArea();
+        }
     }
 }

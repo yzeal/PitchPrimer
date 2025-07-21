@@ -83,7 +83,163 @@
 ## Projekt-Überblick
 Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent und Rhythmus durch Chorusing-Übungen (gleichzeitiges Sprechen mit nativen Aufnahmen).
 
-## LATEST UPDATE - Day 8: Code Cleanup & Debug Features 🔧
+## LATEST UPDATE - Day 9: Voice Calibration System & Visualization Improvements 🎙️
+
+### ✅ MAJOR MILESTONE: PersonalPitchRange Color Mapping Implementation
+**BREAKTHROUGH:** Cube colors now relative to individual voice range instead of fixed spectrum
+- **PersonalPitchRange-based colors:** Farben basieren jetzt auf `personalMinPitch` bis `personalMaxPitch`
+- **Improved color resolution:** Bessere Farbauflösung für tatsächlich verwendete Stimmbreite
+- **Consistent mapping:** Gleiche Normalisierung für Würfelhöhe und Farbe
+- **Scientific accuracy:** Low voice = red cubes, high voice = blue/purple cubes
+
+#### Technical Implementation:
+
+    private Color GetCubeColor(PitchDataPoint pitchData)
+    {
+        // NEW: Use PersonalPitchRange for color mapping instead of legacy frequency range
+        if (settings.useHSVColorMapping)
+        {
+            // Clamp pitch to personal range for consistent color mapping
+            float clampedPitch = Mathf.Clamp(pitch, range.personalMinPitch, range.personalMaxPitch);
+            
+            // Map personal pitch range to color spectrum (0.0 to 0.8 on hue wheel)
+            float normalizedPitch = (clampedPitch - range.personalMinPitch) / (range.personalMaxPitch - range.personalMinPitch);
+            normalizedPitch = Mathf.Clamp01(normalizedPitch);
+            
+            // Convert to HSV: 0.0 = red (low pitch), 0.8 = purple (high pitch)
+            return Color.HSVToRGB(normalizedPitch * 0.8f, settings.saturation, settings.brightness);
+        }
+        return Color.white;
+    }
+
+### ✅ VISUAL ENHANCEMENT: Extended Cube Lifetime for Better Continuity
+**USER EXPERIENCE IMPROVEMENT:** Cubes now stay visible longer to prevent abrupt disappearing
+- **Extended visibility:** Cubes from first repetition visible until third repetition passes focal point
+- **Reduced "pop-out" effect:** Especially important for short audio clips
+- **Better visual continuity:** More context visible during chorusing practice
+- **Configurable system:** Can be adjusted via `cubeLifetimeMultiplier` parameter
+
+#### Implementation in ManageRepetitions():
+
+    private void ManageRepetitions()
+    {
+        // NEW: Remove repetitions that are 2+ repetitions behind the focal point
+        // This allows cubes from first playthrough to stay visible until third playthrough passes focal point
+        float extendedRemoveThreshold = focalPointLocalX - (2.0f * repetitionTotalLength);
+        
+        // Previous: removeThreshold = focalPointLocalX - repetitionTotalLength (1x)
+        // Current: extendedRemoveThreshold = focalPointLocalX - (2.0f * repetitionTotalLength) (2x)
+    }
+
+### ✅ INFRASTRUCTURE: Complete Cross-Platform Settings System
+**PLATTFORMÜBERGREIFENDE PERSISTIERUNG:** Vollständiges Settings-System für alle Zielplattformen implementiert
+- **UserVoiceSettings ScriptableObject:** Strukturierte Daten für Stimm-Kalibrierung
+- **SettingsManager Singleton:** DontDestroyOnLoad für szenenübergreifende Persistierung  
+- **PlayerPrefs Integration:** Funktioniert auf PC, Mac, iOS, Android, WebGL
+- **Event-based application:** Automatische Anwendung auf alle PitchVisualizer
+
+#### Key Components:
+- **UserVoiceSettings:** Voice type detection, calibration metadata, Japanese pitch mapping
+- **SettingsManager:** Singleton pattern, automatic loading/saving, visualizer integration
+- **VoiceRangeCalibrator:** English phrase-based calibration, statistical analysis, quality scoring
+
+### ✅ CALIBRATION SYSTEM: English-Based Voice Range Detection
+**INNOVATIVE APPROACH:** Use English phrases to determine user's natural voice range for Japanese training
+- **Smart phrase selection:** Optimized English phrases for maximum pitch range detection
+- **Statistical analysis:** Outlier removal (10%) and quality scoring
+- **Voice type detection:** Automatic classification (Male/Female/Child/Deep/Low)
+- **Japanese mapping:** Intelligent adaptation for Japanese pronunciation patterns
+
+#### Calibration Phrases Optimized for Pitch Range:
+
+    private string[] calibrationPhrases = {
+        "Hello, how are you today?",           // Natural conversation
+        "What a beautiful morning!",           // Exclamation (higher pitch)
+        "I'm really excited about this.",      // Emotion (varied pitch)
+        "That sounds good to me.",             // Agreement (lower tones)
+        "Oh no, that's terrible!",             // Surprise (pitch jumps)
+        "Please count from one to ten."        // Steady enumeration
+    };
+
+### ✅ TECHNICAL MIGRATION: MicAnalysisRefactored Integration
+**MODERNIZATION:** Migrated VoiceRangeCalibrator from legacy MicAnalysis to event-based MicAnalysisRefactored
+- **Event-driven architecture:** Uses OnPitchDetected events instead of direct API calls
+- **Shared analysis engine:** Leverages modern PitchAnalyzer core
+- **Better performance:** Optimized noise gate and confidence filtering
+- **Consistent codebase:** Same analysis system for calibration and chorusing
+
+#### API Migration:
+
+    // OLD: Direct API calls (legacy MicAnalysis)
+    float currentPitch = micAnalysis.GetCurrentPitch();
+    
+    // NEW: Event-based (MicAnalysisRefactored)
+    micAnalysis.OnPitchDetected += OnPitchDataReceived;
+    private void OnPitchDataReceived(PitchDataPoint pitchData)
+    {
+        if (pitchData.HasPitch && pitchData.confidence >= confidenceThreshold)
+            calibrationPitches.Add(pitchData.frequency);
+    }
+
+### ⚠️ TESTING STATUS: Calibration System Implementation Complete but Untested
+**CURRENT STATE:** All calibration system components implemented and compiling successfully
+- **VoiceRangeCalibrator:** Complete implementation with microphone dropdown selection
+- **UI Integration:** Ready for microphone dropdown, progress slider, phrase display
+- **Settings Persistence:** Full PlayerPrefs integration across platforms
+- **Error Handling:** Comprehensive validation and fallback mechanisms
+
+#### Required for Testing:
+1. **Scene Setup:** Create CalibrationScene with UI components
+2. **Microphone Dropdown:** Add TMP_Dropdown for microphone selection  
+3. **UI References:** Wire up instructionText, phraseText, progressSlider, buttons
+4. **Build Settings:** Add CalibrationScene to build settings for scene transitions
+
+### 🎯 ARCHITECTURE STATE AFTER VOICE CALIBRATION SYSTEM
+
+#### VoiceRangeCalibrator (New):
+- **Event-based pitch collection:** Uses MicAnalysisRefactored.OnPitchDetected
+- **Smart microphone selection:** Automatic filtering of virtual audio devices
+- **Statistical analysis:** Outlier removal, quality scoring, voice type detection
+- **Settings integration:** Direct integration with SettingsManager singleton
+
+#### SettingsManager (New):
+- **Cross-platform persistence:** PlayerPrefs-based storage system
+- **Automatic application:** ApplyToAllVisualizers() for seamless integration
+- **Scene survival:** DontDestroyOnLoad for settings consistency
+- **Voice mapping:** Support for both English calibration and Japanese adaptation
+
+#### PitchVisualizer (Enhanced):
+- **PersonalPitchRange colors:** Both height and color use same pitch range
+- **Extended cube lifetime:** Better visual continuity for short clips
+- **Settings integration:** Automatic application of calibrated voice ranges
+- **Backwards compatibility:** Legacy settings still supported
+
+### 🎯 SUCCESS CRITERIA ACHIEVED
+**COMPREHENSIVE VOICE CALIBRATION FOUNDATION:** Major infrastructure completed
+- **PersonalPitchRange color mapping:** Implemented and working ✅
+- **Extended cube lifetime:** Visual continuity improved ✅
+- **Settings system:** Cross-platform persistence ready ✅
+- **Calibration logic:** English-to-Japanese voice mapping ready ✅
+- **Modern architecture:** Event-based, modular, maintainable ✅
+
+### 📋 NEXT STEPS FOR CALIBRATION TESTING
+**READY FOR IMPLEMENTATION:** Core system complete, UI setup needed
+1. **Create CalibrationScene:** Basic Unity scene with Canvas
+2. **UI Component Setup:** Dropdown, buttons, text fields, progress slider
+3. **Wire References:** Connect UI elements to VoiceRangeCalibrator
+4. **Test Workflow:** English calibration → Settings save → Main scene application
+5. **Validation:** Verify PersonalPitchRange affects both color and height
+
+### 📚 LESSONS LEARNED: Voice Calibration Architecture
+- **English-based approach:** Practical solution for users without Japanese experience
+- **Event-driven design:** More robust than direct API dependencies
+- **Statistical validation:** Outlier removal and quality scoring ensure reliable results
+- **Cross-platform thinking:** PlayerPrefs provides universal storage solution
+- **Modular architecture:** Separate calibration from training for clean separation of concerns
+
+**STATUS:** Voice calibration system architecture complete, ready for UI setup and testing! 🎙️
+
+## Day 8: Code Cleanup & Debug Features 🔧
 
 ### ✅ CRITICAL FIX: Personal Pitch Range Overwrite Issue Solved
 **MAJOR BUG RESOLVED:** Editor pitch range values no longer overwritten at runtime
@@ -419,7 +575,18 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 
 ## 🎯 NEXT PRIORITIES for Fresh Session
 
-### Priority 1: CRITICAL - Fix Sync Drift Issue
+### Priority 1: CRITICAL - Test Voice Calibration System
+**GOAL:** Validate complete calibration workflow from English phrases to Japanese training
+
+#### Testing Steps:
+1. **Create CalibrationScene:** Set up UI with microphone dropdown, buttons, progress display
+2. **Wire UI components:** Connect TMP_Dropdown, TextMeshPro fields, Slider, Buttons to VoiceRangeCalibrator
+3. **Test microphone selection:** Verify dropdown populates with real microphones, filters virtual devices
+4. **Test calibration workflow:** English phrases → pitch collection → statistical analysis → settings save
+5. **Test scene transition:** CalibrationScene → TestScene2 with settings persistence
+6. **Validate settings application:** Verify PersonalPitchRange affects both cube height and color
+
+### Priority 2: CRITICAL - Fix Sync Drift Issue
 **GOAL:** Eliminate gradual timing drift between audio and visual
 
 #### Investigation Steps:
@@ -433,7 +600,7 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 - **Option B:** Synchronize both systems to same Update frequency
 - **Option C:** Add periodic re-sync mechanism to correct drift
 
-### Priority 2: Code Cleanup & Optimization
+### Priority 3: Code Cleanup & Optimization
 **GOAL:** Remove legacy code and optimize performance
 
 #### Cleanup Tasks:
@@ -442,7 +609,7 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 - **Optimize repetition management:** Ensure efficient cube creation/destruction
 - **Update documentation:** Clean up comments and context
 
-### Priority 3: Long-term Stability Testing
+### Priority 4: Long-term Stability Testing
 **GOAL:** Test with various audio lengths and extended sessions
 
 #### Testing Scenarios:
@@ -451,99 +618,26 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 - **Extended sessions (10+ minutes):** Measure drift over time
 - **Different frame rates:** Test performance impact
 
-## LESSONS LEARNED: InitialAudioDelay Implementation
+## LESSONS LEARNED: Voice Calibration Architecture
 
 ### ✅ What WORKED:
-- **Immediate audio start:** Eliminates Unity audio latency issues
-- **Configurable delay:** Easy adjustment for different systems
-- **Minimal changes:** Built on existing proven architecture
-- **Exception handling:** First audio play treated as special case
+- **English-based approach:** Practical solution for users without Japanese experience
+- **Event-driven design:** More robust than direct API dependencies
+- **Statistical validation:** Outlier removal and quality scoring ensure reliable results
+- **Cross-platform thinking:** PlayerPrefs provides universal storage solution
+- **PersonalPitchRange colors:** Consistent mapping improves user experience
 
 ### 🎯 What IMPROVED:
-- **Perfect first sync:** Audio and visual timing matched from start
-- **Simple implementation:** Only affects first audio play
-- **Preserved events:** All loop functionality unchanged
-- **Clean configuration:** Single parameter for timing adjustment
+- **Visual continuity:** Extended cube lifetime prevents abrupt disappearing
+- **Color resolution:** Personal pitch range provides better color differentiation
+- **Modern architecture:** Event-based, modular, maintainable calibration system
+- **Settings persistence:** Seamless cross-platform voice range storage
 
 ### 🎯 Success Criteria for Next Session:
+- **Calibration testing:** Complete workflow validation from UI to settings
 - **Zero drift:** Audio and visual stay synchronized indefinitely
 - **Clean code:** No legacy systems or unused variables
 - **Performance:** Smooth operation with any audio length
 - **Documentation:** Clear architecture notes for future development
 
-**STATUS:** InitialAudioDelay system implemented, perfect first-time sync achieved! 🚀
-
-## Day 5 Achievements 🎯 (SUPERSEDED by Day 6)
-
-### 1. ✅ CRITICAL FIX: Audio-Visual Synchronization Perfected
-**BREAKTHROUGH:** Cube at focal point now represents currently playing audio
-- **Fixed initial positioning:** Cube 0 (timestamp=0) now correctly positioned at focal point
-- **Consistent cube spacing:** Eliminated gaps between first and subsequent loops
-- **Short audio handling:** Fixed positioning issues for audio shorter than maxCubes
-- **Perfect synchronization:** Focal point cube = current audio being played
-
-#### Key Technical Fixes Applied:
-- **CreateInitialNativeWindow():** Position cubes relative to focal point instead of array indices
-- **AddSimpleNativeCube():** Use actual data length for short audio instead of maxCubes
-- **CreateCube():** Separate positioning logic for user vs pre-rendered cubes
-- **Eliminated double positioning:** Removed conflicting positioning systems
-
-### 2. ❌ SILENCE IMPLEMENTATION: Failed Attempt (FULLY REVERTED)
-**LESSON LEARNED:** Complex timing manipulation causes synchronization issues
-
-#### What We Tried (and failed):
-- **Extended data system:** Added virtual silence cubes to pitch data
-- **Custom looping with real audio silence:** ChorusingManager modifications
-- **Silence mode tracking:** Complex state management for visual/audio phases
-- **Timing manipulation:** Modified core visualization timing during silence
-- **Result:** Sync issues, freezing after first loop, complex debugging
-
-#### Problems with Complex Approach:
-- **Timing conflicts:** Audio timing vs visualization timing confusion
-- **State management:** Complex silence mode caused edge cases
-- **Synchronization drift:** Extended data vs real audio timing mismatch
-- **Maintenance issues:** Too many interconnected systems to debug
-
-#### Successfully Reverted to Clean State:
-- **PitchVisualizer.cs:** Removed ALL silence-related code (isSilenceMode, SetSilenceMode(), ShowSilenceAtFocalPoint())
-- **ChorusingManager.cs:** Removed ALL custom looping and silence code
-- **Clean foundation:** Back to working basic looping without any silence features
-
-### 3. 🎯 FUTURE PLAN: Simple Silence Implementation Strategy (SUPERSEDED)
-**NOTE:** Day 6 successfully implemented this plan with repetitions system
-
-#### The Plan That Was Implemented:
-
-**Step 1: Revert Complete (✅ DONE)**
-- ✅ PitchVisualizer.cs: Remove isSilenceMode variable, SetSilenceMode() method, ShowSilenceAtFocalPoint() method, complex timing logic
-- ✅ ChorusingManager.cs: Remove extended data system, custom looping, SetSilenceMode() calls
-- ✅ Back to basic AudioSource.loop = true system
-
-**Step 2: Keep Working Foundation (✅ DONE)**
-- ✅ Perfect synchronization: Keep fixed cube positioning
-- ✅ Clean architecture: Maintain separation of concerns
-- ✅ Basic looping: Standard Unity AudioSource looping
-
-**Step 3: Implement Simple Silence (✅ IMPLEMENTED in Day 6)**
-- ✅ Add configurable silence between loops (real audio pause)
-- ✅ Add simple visual overlay during silence periods (silence cubes)
-- ✅ No changes to core scrolling/timing logic
-- ✅ Keep it simple and separate from core systems
-
-### 4. ✅ WORKING FEATURES CONFIRMED
-**SOLID FOUNDATION:** Core systems working perfectly
-- **Personal pitch range system:** Individual voice calibration ✅
-- **Focal point visualization:** Perfect cube positioning ✅
-- **Audio synchronization:** Cube at focal = current audio ✅
-- **Basic looping:** Standard Unity AudioSource.loop ✅
-- **Debug logging:** Native recording pitch range analysis ✅
-
-## Day 4 Achievements 🎯
-
-### 1. ✅ MAJOR: Personal Pitch Range System Implemented
-**BREAKTHROUGH:** Individual voice calibration system for fair scoring and learning
-- **PersonalPitchRange class:** Individual min/max pitch settings per visualizer
-- **Manual calibration only:** NO automatic adaptation that could learn user mistakes
-- **Visual mapping:** Personal pitch range maps to cube height range (0-100%)
-- **Out-of-range handling:** Clamp, Hide, or Highlight pitches outside range
-- **Voice type presets:** Easy setup for male/female/child voices
+**STATUS:** Voice calibration system architecture complete, ready for comprehensive testing! 🎙️
