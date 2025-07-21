@@ -700,7 +700,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settings:
-    cubePrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
+    cubePrefab: {fileID: 4946344182149780891, guid: 23b274bf34b8ba94fa5945e065a517ee, type: 3}
     cubeParent: {fileID: 453507923}
     cubeSpacing: 0.8
     cubeScale: {x: 0.8, y: 1, z: 0.1}
@@ -1747,7 +1747,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settings:
-    cubePrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
+    cubePrefab: {fileID: 4946344182149780891, guid: 23b274bf34b8ba94fa5945e065a517ee, type: 3}
     cubeParent: {fileID: 1109803072}
     cubeSpacing: 0.8
     cubeScale: {x: 0.8, y: 1, z: 0.1}
