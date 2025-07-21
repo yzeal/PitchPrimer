@@ -702,8 +702,8 @@ MonoBehaviour:
   settings:
     cubePrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
     cubeParent: {fileID: 453507923}
-    cubeSpacing: 0.4
-    cubeScale: {x: 0.4, y: 1, z: 0.1}
+    cubeSpacing: 0.8
+    cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
     nativeRepetitions: 5
@@ -1749,8 +1749,8 @@ MonoBehaviour:
   settings:
     cubePrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
     cubeParent: {fileID: 1109803072}
-    cubeSpacing: 0.4
-    cubeScale: {x: 0.4, y: 1, z: 0.1}
+    cubeSpacing: 0.8
+    cubeScale: {x: 0.8, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
     nativeRepetitions: 5

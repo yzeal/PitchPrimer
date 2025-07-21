@@ -268,11 +268,18 @@ public class PitchVisualizer : MonoBehaviour
             return range.outOfRangeColor;
         }
         
-        // Use legacy frequency range for color mapping (broader spectrum)
+        // NEW: Use PersonalPitchRange for color mapping instead of legacy frequency range
         if (settings.useHSVColorMapping)
         {
-            float normalizedPitch = (pitch - settings.minFrequency) / (settings.maxFrequency - settings.minFrequency);
+            // Clamp pitch to personal range for consistent color mapping
+            float clampedPitch = Mathf.Clamp(pitch, range.personalMinPitch, range.personalMaxPitch);
+            
+            // Map personal pitch range to color spectrum (0.0 to 0.8 on hue wheel)
+            float normalizedPitch = (clampedPitch - range.personalMinPitch) / (range.personalMaxPitch - range.personalMinPitch);
             normalizedPitch = Mathf.Clamp01(normalizedPitch);
+            
+            // Convert to HSV: 0.0 = red (low pitch), 0.8 = purple (high pitch)
+            // This gives a nice progression: red ? orange ? yellow ? green ? cyan ? blue ? purple
             return Color.HSVToRGB(normalizedPitch * 0.8f, settings.saturation, settings.brightness);
         }
         
