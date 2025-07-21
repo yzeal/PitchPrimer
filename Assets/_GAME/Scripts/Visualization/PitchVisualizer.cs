@@ -633,13 +633,14 @@ public class PitchVisualizer : MonoBehaviour
     
     private void ManageRepetitions()
     {
-        // Remove repetitions that scrolled off-screen (left side)
-        float removeThreshold = focalPointLocalX - repetitionTotalLength;
+        // NEW: Remove repetitions that are 2+ repetitions behind the focal point
+        // This allows cubes from first playthrough to stay visible until third playthrough passes focal point
+        float extendedRemoveThreshold = focalPointLocalX - (2.0f * repetitionTotalLength);
         
         for (int i = activeRepetitions.Count - 1; i >= 0; i--)
         {
             var rep = activeRepetitions[i];
-            if (rep.startPosition < removeThreshold)
+            if (rep.startPosition < extendedRemoveThreshold)
             {
                 // Destroy all cubes in this repetition
                 foreach (var cube in rep.cubes)
@@ -648,7 +649,7 @@ public class PitchVisualizer : MonoBehaviour
                 }
                 activeRepetitions.RemoveAt(i);
                 
-                Debug.Log($"[PitchVisualizer] {gameObject.name} Removed repetition {rep.repetitionIndex} at pos {rep.startPosition:F1}");
+                Debug.Log($"[PitchVisualizer] {gameObject.name} Removed repetition {rep.repetitionIndex} at pos {rep.startPosition:F1} (extended threshold: {extendedRemoveThreshold:F1})");
             }
         }
         

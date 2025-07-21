@@ -700,7 +700,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settings:
-    cubePrefab: {fileID: 4946344182149780891, guid: 23b274bf34b8ba94fa5945e065a517ee, type: 3}
+    cubePrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
     cubeParent: {fileID: 453507923}
     cubeSpacing: 0.8
     cubeScale: {x: 0.8, y: 1, z: 0.1}
@@ -713,8 +713,8 @@ MonoBehaviour:
     pitchRange:
       personalMinPitch: 100
       personalMaxPitch: 300
-      minCubeHeight: 0.1
-      maxCubeHeight: 5
+      minCubeHeight: 0
+      maxCubeHeight: 10
       outOfRangeMode: 0
       outOfRangeColor: {r: 1, g: 0, b: 0, a: 1}
       showRangeDebug: 0
@@ -1852,7 +1852,7 @@ MonoBehaviour:
     historySize: 10
     useSmoothing: 1
     enableDebugLogging: 1
-  nativeClip: {fileID: 8300000, guid: 2032675219f1d9641a7f02911190f844, type: 3}
+  nativeClip: {fileID: 8300000, guid: 238a2fe652b73cf4d96f7d01bfc97ac8, type: 3}
   analysisInterval: 0.05
   initialAudioDelay: 0.5
   requestedSilenceDuration: 0.6
@@ -2720,7 +2720,7 @@ MonoBehaviour:
   deviceName: 
   minAudioLevel: 0.001
   enableNoiseGate: 1
-  noiseGateMultiplier: 3
+  noiseGateMultiplier: 1
   ambientCalibrationTime: 2
   ambientSamplePercentage: 0.7
   enableDebugLogging: 0
