@@ -23,6 +23,14 @@ public class MicAnalysisRefactored : MonoBehaviour
     [SerializeField] private float ambientCalibrationTime = 2.0f; // Sekunden für Ambient-Messung
     [SerializeField] private float ambientSamplePercentage = 0.7f; // Verwende untere 70% für Ambient-Berechnung
     
+    [Header("Pitch Range Filter")]
+    [SerializeField] private bool enablePitchRangeFilter = true;
+    [Tooltip("Minimum acceptable pitch in Hz (below this = noise)")]
+    [SerializeField] private float minAcceptablePitch = 60f; // Lower than typical human voice
+    [Tooltip("Maximum acceptable pitch in Hz (above this = noise like fans)")]
+    [SerializeField] private float maxAcceptablePitch = 600f; // Higher than typical human voice
+    [SerializeField] private bool debugPitchFilter = false; // Separate pitch filter debugging
+    
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogging = false;
     [SerializeField] private bool debugNoiseGate = false; // Separate noise gate debugging
@@ -41,6 +49,10 @@ public class MicAnalysisRefactored : MonoBehaviour
     private List<float> calibrationSamples;
     private bool isCalibrating = true;
     private float calibrationStartTime;
+    
+    // NEW: Pitch filter statistics
+    private int totalPitchesDetected = 0;
+    private int pitchesFilteredByRange = 0;
     
     void Start()
     {
@@ -72,6 +84,32 @@ public class MicAnalysisRefactored : MonoBehaviour
         
         audioSource.mute = true;
         audioSource.volume = 0f;
+        
+        // NEW: Validate pitch range settings
+        ValidatePitchRangeSettings();
+    }
+    
+    // NEW: Validate and adjust pitch range settings
+    private void ValidatePitchRangeSettings()
+    {
+        if (enablePitchRangeFilter)
+        {
+            // Ensure min < max
+            if (minAcceptablePitch >= maxAcceptablePitch)
+            {
+                Debug.LogWarning($"[MicAnalysisRefactored] Invalid pitch range: min ({minAcceptablePitch}) >= max ({maxAcceptablePitch}). Adjusting...");
+                maxAcceptablePitch = minAcceptablePitch + 100f;
+            }
+            
+            // Warn if range seems too narrow
+            float range = maxAcceptablePitch - minAcceptablePitch;
+            if (range < 100f)
+            {
+                Debug.LogWarning($"[MicAnalysisRefactored] Pitch range very narrow ({range:F1}Hz). This may filter out valid voice data.");
+            }
+            
+            DebugLog($"Pitch range filter: {minAcceptablePitch:F1}-{maxAcceptablePitch:F1}Hz");
+        }
     }
     
     public void SetMicrophone(string microphoneName)
@@ -110,6 +148,10 @@ public class MicAnalysisRefactored : MonoBehaviour
                 isCalibrating = false;
                 DebugLog("Analysis started without noise gate");
             }
+            
+            // NEW: Reset pitch filter statistics
+            totalPitchesDetected = 0;
+            pitchesFilteredByRange = 0;
         }
         else
         {
@@ -120,6 +162,14 @@ public class MicAnalysisRefactored : MonoBehaviour
     public void StopAnalysis()
     {
         DebugLog($"Stopping analysis - was analyzing: {isAnalyzing}");
+        
+        // NEW: Log pitch filter statistics
+        if (enablePitchRangeFilter && totalPitchesDetected > 0)
+        {
+            float filterPercentage = (pitchesFilteredByRange / (float)totalPitchesDetected) * 100f;
+            DebugLog($"Pitch filter stats: {pitchesFilteredByRange}/{totalPitchesDetected} pitches filtered ({filterPercentage:F1}%)");
+        }
+        
         isAnalyzing = false;
         
         if (!string.IsNullOrEmpty(deviceName) && Microphone.IsRecording(deviceName))
@@ -219,6 +269,11 @@ public class MicAnalysisRefactored : MonoBehaviour
                 DebugLog($"Audio blocked by noise gate - Level: {pitchData.audioLevel:F4}");
             pitchData = new PitchDataPoint(timestamp, 0f, 0f, pitchData.audioLevel);
         }
+        else
+        {
+            // NEW: Apply pitch range filter after noise gate
+            pitchData = ApplyPitchRangeFilter(pitchData);
+        }
         
         // Event feuern
         OnPitchDetected?.Invoke(pitchData);
@@ -228,6 +283,38 @@ public class MicAnalysisRefactored : MonoBehaviour
         {
             DebugLog($"Pitch detected: {pitchData.frequency:F1}Hz");
         }
+    }
+    
+    // NEW: Apply pitch range filter to remove fan noise and other unwanted frequencies
+    private PitchDataPoint ApplyPitchRangeFilter(PitchDataPoint originalData)
+    {
+        if (!enablePitchRangeFilter || !originalData.HasPitch)
+        {
+            return originalData; // No filtering needed
+        }
+        
+        totalPitchesDetected++;
+        
+        // Check if pitch is within acceptable range
+        bool isInRange = originalData.frequency >= minAcceptablePitch && 
+                        originalData.frequency <= maxAcceptablePitch;
+        
+        if (!isInRange)
+        {
+            pitchesFilteredByRange++;
+            
+            if (debugPitchFilter && enableDebugLogging)
+            {
+                string reason = originalData.frequency < minAcceptablePitch ? "too low" : "too high";
+                DebugLog($"Pitch filtered: {originalData.frequency:F1}Hz ({reason}) - Range: {minAcceptablePitch:F1}-{maxAcceptablePitch:F1}Hz");
+            }
+            
+            // Return modified data point with no pitch
+            return new PitchDataPoint(originalData.timestamp, 0f, 0f, originalData.audioLevel);
+        }
+        
+        // Pitch is in acceptable range
+        return originalData;
     }
     
     private bool UpdateNoiseGate(float currentAudioLevel)
@@ -285,6 +372,37 @@ public class MicAnalysisRefactored : MonoBehaviour
         }
     }
     
+    // NEW: Manual pitch range adjustment methods
+    public void SetPitchRange(float minPitch, float maxPitch)
+    {
+        minAcceptablePitch = minPitch;
+        maxAcceptablePitch = maxPitch;
+        ValidatePitchRangeSettings();
+        DebugLog($"Pitch range updated: {minAcceptablePitch:F1}-{maxAcceptablePitch:F1}Hz");
+    }
+    
+    public void SetPitchRangeForVoiceType(string voiceType)
+    {
+        switch (voiceType.ToLower())
+        {
+            case "male":
+                SetPitchRange(80f, 300f);
+                break;
+            case "female":
+                SetPitchRange(120f, 400f);
+                break;
+            case "child":
+                SetPitchRange(200f, 600f);
+                break;
+            case "speech":
+                SetPitchRange(60f, 500f); // General speech range
+                break;
+            default:
+                DebugLog($"Unknown voice type: {voiceType}. Use 'male', 'female', 'child', or 'speech'");
+                break;
+        }
+    }
+    
     private void DebugLog(string message)
     {
         if (enableDebugLogging)
@@ -305,4 +423,12 @@ public class MicAnalysisRefactored : MonoBehaviour
     public string CurrentDevice => deviceName;
     public bool NoiseGateEnabled => enableNoiseGate;
     public float NoiseGateThreshold => enableNoiseGate ? ambientNoiseLevel * noiseGateMultiplier : minAudioLevel;
+    
+    // NEW: Public getters for pitch filter status
+    public bool PitchRangeFilterEnabled => enablePitchRangeFilter;
+    public float MinAcceptablePitch => minAcceptablePitch;
+    public float MaxAcceptablePitch => maxAcceptablePitch;
+    public float PitchFilterEfficiency => totalPitchesDetected > 0 ? (pitchesFilteredByRange / (float)totalPitchesDetected) * 100f : 0f;
+    public int TotalPitchesDetected => totalPitchesDetected;
+    public int PitchesFilteredByRange => pitchesFilteredByRange;
 }
