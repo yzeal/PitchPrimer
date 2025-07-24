@@ -2,13 +2,24 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
+// ? RECOMMENDED CLASS - Use this for all new development ?
+// This is the modern, event-driven replacement for the deprecated MicAnalysis class
+
 // COPILOT CONTEXT: Refactored microphone analysis for chorusing system
 // Uses shared PitchAnalyzer core and modular visualization
 // Integrates with ChorusingManager for synchronized dual-track display
 
+// MIGRATION FROM MicAnalysis:
+// • Replace GetCurrentPitch() calls with OnPitchDetected event subscription
+// • Use PitchDataPoint struct instead of raw float values
+// • Benefit from advanced pitch range filtering and noise gate improvements
+// • Access real-time statistics and voice type presets
+
 [RequireComponent(typeof(AudioSource))]
 public class MicAnalysisRefactored : MonoBehaviour
 {
+    [Header("? MODERN IMPLEMENTATION - Preferred over deprecated MicAnalysis")]
+    [Space(10)]
     [Header("Analysis")]
     [SerializeField] private PitchAnalysisSettings analysisSettings;
     [SerializeField] private float analysisInterval = 0.1f;
@@ -35,7 +46,9 @@ public class MicAnalysisRefactored : MonoBehaviour
     [SerializeField] private bool enableDebugLogging = false;
     [SerializeField] private bool debugNoiseGate = false; // Separate noise gate debugging
     
-    // Events für lose Kopplung
+    // ? MODERN EVENT-DRIVEN ARCHITECTURE
+    // Subscribe to this event instead of polling GetCurrentPitch()
+    // Example: micAnalysis.OnPitchDetected += (pitchData) => { /* handle pitch data */ };
     public System.Action<PitchDataPoint> OnPitchDetected;
     
     private AudioSource audioSource;
@@ -57,7 +70,7 @@ public class MicAnalysisRefactored : MonoBehaviour
     void Start()
     {
         InitializeComponents();
-        DebugLog("MicAnalysisRefactored initialized");
+        DebugLog("MicAnalysisRefactored initialized - ? Modern implementation in use");
     }
     
     void Update()
@@ -275,7 +288,7 @@ public class MicAnalysisRefactored : MonoBehaviour
             pitchData = ApplyPitchRangeFilter(pitchData);
         }
         
-        // Event feuern
+        // ? MODERN EVENT-DRIVEN ARCHITECTURE: Fire event instead of storing in variables
         OnPitchDetected?.Invoke(pitchData);
         
         // Optional: Debug für interessante Pitches
@@ -416,7 +429,7 @@ public class MicAnalysisRefactored : MonoBehaviour
         StopAnalysis();
     }
     
-    // Public getters für Status
+    // ? MODERN PROPERTY-BASED API - Use these instead of deprecated methods
     public bool IsAnalyzing => isAnalyzing;
     public bool IsCalibrating => isCalibrating;
     public float AmbientNoiseLevel => ambientNoiseLevel;

@@ -4,9 +4,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 
+// ?? DEPRECATED CLASS - DO NOT USE FOR NEW DEVELOPMENT ??
+// Use MicAnalysisRefactored instead for all new projects
+// This class is kept for backwards compatibility only
+
+// COPILOT CONTEXT: This is a Japanese pitch accent trainer
+// *** LEGACY IMPLEMENTATION - DEPRECATED ***
+// Current implementation: Real-time pitch detection with cube visualization
+// Working parameters: 80-800Hz range, 1.5f scale multiplier, 0.1f correlation threshold
+// *** MIGRATION NOTE: Use MicAnalysisRefactored for new development ***
+
 [RequireComponent(typeof(AudioSource))]
+[System.Obsolete("MicAnalysis is deprecated. Use MicAnalysisRefactored instead for better performance, event-driven architecture, and advanced filtering capabilities.", false)]
 public class MicAnalysis : MonoBehaviour
 {
+    [Header("?? DEPRECATED - Use MicAnalysisRefactored Instead")]
+    [Space(10)]
     [Header("Microphone Settings")]
     [SerializeField] private string deviceName;
     [SerializeField] private int sampleRate = 44100;
@@ -39,11 +52,6 @@ public class MicAnalysis : MonoBehaviour
     [SerializeField] private bool showAudioLevels = true;
     [SerializeField] private bool debugCorrelation = true; // New
     [SerializeField] private bool debugNoiseGate = true; // New
-    
-    // COPILOT CONTEXT: This is a Japanese pitch accent trainer
-    // Current implementation: Real-time pitch detection with cube visualization
-    // Working parameters: 80-800Hz range, 1.5f scale multiplier, 0.1f correlation threshold
-    // Next steps: Add audio clip comparison and scoring system
 
     // Audio components
     private AudioSource audioSource;
@@ -77,8 +85,17 @@ public class MicAnalysis : MonoBehaviour
     
     void Start()
     {
+        // Show deprecation warning in console
+        Debug.LogWarning("[DEPRECATED] MicAnalysis is deprecated! Use MicAnalysisRefactored instead for:\n" +
+                        "• Event-driven architecture with OnPitchDetected events\n" +
+                        "• Advanced pitch range filtering for noise elimination\n" +
+                        "• Shared PitchAnalyzer core for consistency\n" +
+                        "• Better performance and modular design\n" +
+                        "• Voice type presets and real-time statistics\n" +
+                        "GameObject: " + gameObject.name);
+        
         InitializeComponents();
-        DebugLog("MicAnalysis Start() called");
+        DebugLog("MicAnalysis Start() called - ?? DEPRECATED CLASS IN USE ??");
         audioSource = GetComponent<AudioSource>();
     }
     
@@ -118,12 +135,14 @@ public class MicAnalysis : MonoBehaviour
         DebugLog("Components initialized successfully");
     }
     
+    [System.Obsolete("SetMicrophone is deprecated. Use MicAnalysisRefactored.SetMicrophone() instead.", false)]
     public void SetMicrophone(string microphoneName)
     {
         deviceName = microphoneName;
         DebugLog($"Microphone set to: {deviceName}");
     }
     
+    [System.Obsolete("StartAnalysis is deprecated. Use MicAnalysisRefactored.StartAnalysis() instead.", false)]
     public void StartAnalysis()
     {
         DebugLog($"StartAnalysis() called with device: {deviceName}");
@@ -157,6 +176,7 @@ public class MicAnalysis : MonoBehaviour
         }
     }
     
+    [System.Obsolete("StopAnalysis is deprecated. Use MicAnalysisRefactored.StopAnalysis() instead.", false)]
     public void StopAnalysis()
     {
         DebugLog($"StopAnalysis() called - was analyzing: {isAnalyzing}");
@@ -601,19 +621,33 @@ public class MicAnalysis : MonoBehaviour
     {
         if (enableDebugLogging)
         {
-            Debug.Log($"[MicAnalysis] {message}");
+            Debug.Log($"[MicAnalysis - DEPRECATED] {message}");
         }
     }
     
-    // Public methods for accessing pitch data
+    // Public methods for accessing pitch data - ALL DEPRECATED
+    [System.Obsolete("GetCurrentPitch is deprecated. Use MicAnalysisRefactored with OnPitchDetected event instead.", false)]
     public float GetCurrentPitch() => currentPitch;
+    
+    [System.Obsolete("GetSmoothedPitch is deprecated. Use MicAnalysisRefactored with OnPitchDetected event instead.", false)]
     public float GetSmoothedPitch() => pitchHistory.Count > 0 ? pitchHistory.Average() : 0;
+    
+    [System.Obsolete("GetPitchHistory is deprecated. Use MicAnalysisRefactored with OnPitchDetected event instead.", false)]
     public List<float> GetPitchHistory() => new List<float>(pitchHistory);
+    
+    [System.Obsolete("IsAnalyzing is deprecated. Use MicAnalysisRefactored.IsAnalyzing property instead.", false)]
     public bool IsAnalyzing() => isAnalyzing;
     
-    // Public methods for noise gate info
+    // Public methods for noise gate info - ALL DEPRECATED
+    [System.Obsolete("GetAmbientNoiseLevel is deprecated. Use MicAnalysisRefactored.AmbientNoiseLevel property instead.", false)]
     public float GetAmbientNoiseLevel() => ambientNoiseLevel;
+    
+    [System.Obsolete("GetCurrentGateLevel is deprecated. Use MicAnalysisRefactored.NoiseGateThreshold property instead.", false)]
     public float GetCurrentGateLevel() => currentGateLevel;
+    
+    [System.Obsolete("IsGateOpen is deprecated. Use MicAnalysisRefactored for advanced noise gate functionality.", false)]
     public bool IsGateOpen() => gateIsOpen;
+    
+    [System.Obsolete("IsCalibrating is deprecated. Use MicAnalysisRefactored.IsCalibrating property instead.", false)]
     public bool IsCalibrating() => isCalibrating;
 }
