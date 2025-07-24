@@ -95,6 +95,17 @@ public class VisualizationSettings
     [Header("Audio Loop Trigger Settings")]
     [Tooltip("Cubes before focal point to trigger audio loops")]
     public int loopAudioTriggerOffset = 1;
+    
+    // NEW: User Recording Visibility
+    [Header("User Recording Visibility")]
+    [Tooltip("User cubes start invisible until recording input is pressed")]
+    public bool enableVisibilityControl = true;
+    [Tooltip("Alpha value for invisible user cubes (0 = fully invisible)")]
+    public float invisibleAlpha = 0f;
+    [Tooltip("Alpha value for visible user cubes")]
+    public float visibleAlpha = 1f;
+    [Tooltip("Transition speed between invisible and visible states")]
+    public float visibilityTransitionSpeed = 5f;
 }
 
 // NEW: Repetition data structure
@@ -152,6 +163,10 @@ public class PitchVisualizer : MonoBehaviour
     // LEGACY: Remove these after testing (keep for now to avoid errors)
     private List<GameObject> preRenderedCubes; // Keep for transition
     
+    // NEW: User recording visibility control
+    private bool userRecordingVisible = false;
+    private bool isTransitioningVisibility = false;
+    
     private enum CubeState
     {
         Played, Current, Future
@@ -160,6 +175,9 @@ public class PitchVisualizer : MonoBehaviour
     void Awake()
     { 
         EnsureInitialization();
+        
+        // NEW: Initialize visibility control
+        InitializeVisibilityControl();
     }
     
     void Start()
@@ -168,7 +186,18 @@ public class PitchVisualizer : MonoBehaviour
         UpdateFocalPoint();
         CreateFocalIndicator();
     }
-    
+
+    void Update()
+    {
+        // Existing update logic...
+
+        // NEW: Handle visibility transitions
+        if (isTransitioningVisibility)
+        {
+            UpdateCubeVisibility();
+        }
+    }
+
     // Manual calibration methods
     public void SetPersonalPitchRange(float minPitch, float maxPitch)
     {
@@ -760,6 +789,109 @@ public class PitchVisualizer : MonoBehaviour
         SetNativeCubeStateByType(cube, dataIndex, state);
     }
     
+    // NEW: User recording visibility control
+    private void InitializeVisibilityControl()
+    {
+        if (!settings.enableVisibilityControl || isNativeTrack)
+            return;
+            
+        // Start with invisible user cubes
+        userRecordingVisible = false;
+        
+        // Find and subscribe to input manager
+        var inputManager = FindFirstObjectByType<UserRecordingInputManager>();
+        if (inputManager != null)
+        {
+            inputManager.OnRecordingStarted += ShowUserRecording;
+            inputManager.OnRecordingStopped += HideUserRecording;
+            
+            Debug.Log("Subscribed to recording input events");
+        }
+        else
+        {
+            Debug.LogWarning("[PitchVisualizer] UserRecordingInputManager not found! User recording visibility control disabled.");
+        }
+    }
+    
+    // NEW: Show user recording cubes
+    private void ShowUserRecording()
+    {
+        if (!settings.enableVisibilityControl || isNativeTrack)
+            return;
+            
+        userRecordingVisible = true;
+        isTransitioningVisibility = true;
+        
+        Debug.Log("User recording cubes becoming visible");
+    }
+    
+    // NEW: Hide user recording cubes
+    private void HideUserRecording()
+    {
+        if (!settings.enableVisibilityControl || isNativeTrack)
+            return;
+            
+        userRecordingVisible = false;
+        isTransitioningVisibility = true;
+        
+        Debug.Log("User recording cubes becoming invisible");
+    }
+    
+    // NEW: Update cube visibility (call this in Update() if transitioning)
+    private void UpdateCubeVisibility()
+    {
+        if (!isTransitioningVisibility || activeCubes == null || isNativeTrack)
+            return;
+            
+        float targetAlpha = userRecordingVisible ? settings.visibleAlpha : settings.invisibleAlpha;
+        bool transitionComplete = true;
+        
+        foreach (GameObject cube in activeCubes)
+        {
+            if (cube == null) continue;
+            
+            var renderer = cube.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                Color currentColor = renderer.material.color;
+                float newAlpha = Mathf.MoveTowards(currentColor.a, targetAlpha, 
+                    settings.visibilityTransitionSpeed * Time.deltaTime);
+                
+                currentColor.a = newAlpha;
+                renderer.material.color = currentColor;
+                
+                // Check if transition is complete
+                if (Mathf.Abs(newAlpha - targetAlpha) > 0.01f)
+                {
+                    transitionComplete = false;
+                }
+            }
+        }
+        
+        // Stop transitioning when all cubes reach target alpha
+        if (transitionComplete)
+        {
+            isTransitioningVisibility = false;
+            Debug.Log($"Visibility transition complete - Alpha: {targetAlpha:F2}");
+        }
+    }
+    
+    // NEW: Apply initial visibility to newly created user cubes
+    private void ApplyInitialVisibility(GameObject cube)
+    {
+        if (!settings.enableVisibilityControl || isNativeTrack || cube == null)
+            return;
+            
+        var renderer = cube.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            Color cubeColor = renderer.material.color;
+            cubeColor.a = userRecordingVisible ? settings.visibleAlpha : settings.invisibleAlpha;
+            renderer.material.color = cubeColor;
+        }
+    }
+    
+    // MODIFIED: Update the existing CreateCube method to apply initial visibility
     private GameObject CreateCube(PitchDataPoint pitchData, bool isPreRendered, int index = -1)
     {
         if (settings.cubePrefab == null || settings.cubeParent == null) 
@@ -780,12 +912,16 @@ public class PitchVisualizer : MonoBehaviour
         scale.y = pitchScale;
         newCube.transform.localScale = scale;
         
+        // Apply colors and visibility
         if (!isPreRendered)
         {
             var renderer = newCube.GetComponent<Renderer>();
             if (renderer != null)
             {
                 renderer.material.color = GetCubeColor(pitchData);
+                
+                // NEW: Apply initial visibility for user cubes
+                ApplyInitialVisibility(newCube);
             }
         }
         
@@ -884,9 +1020,23 @@ public class PitchVisualizer : MonoBehaviour
         ResetAudioTriggers();
     }
     
+    // NEW: Cleanup method for OnDestroy()
+    private void CleanupVisibilityControl()
+    {
+        var inputManager = FindFirstObjectByType<UserRecordingInputManager>();
+        if (inputManager != null)
+        {
+            inputManager.OnRecordingStarted -= ShowUserRecording;
+            inputManager.OnRecordingStopped -= HideUserRecording;
+        }
+    }
+    
     void OnDestroy()
     {
         ClearAll();
+        
+        // NEW: Cleanup visibility control
+        CleanupVisibilityControl();
     }
     
     public VisualizationSettings GetSettings()

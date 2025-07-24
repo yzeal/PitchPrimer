@@ -35,6 +35,10 @@ public class ChorusingManager : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogging = false;
 
+    [Header("User Recording Control")]
+    [SerializeField] private UserRecordingInputManager inputManager;
+    [SerializeField] private bool enableUserRecordingControl = true;
+
     private List<PitchDataPoint> nativePitchData;
     private bool isChorusingActive = false;
     private float chorusingStartTime;
@@ -47,6 +51,13 @@ public class ChorusingManager : MonoBehaviour
     void Start()
     {
         InitializeComponents();
+        
+        // NEW: Initialize input manager
+        if (inputManager == null)
+        {
+            inputManager = FindFirstObjectByType<UserRecordingInputManager>();
+        }
+        
         if (nativeClip != null)
         {
             PreAnalyzeNativeRecording();
@@ -248,7 +259,22 @@ public class ChorusingManager : MonoBehaviour
         }
         nativeAudioSource.playOnAwake = false;
         
+        InitializeInputManager();
+        
         DebugLog("ChorusingManager components initialized");
+    }
+
+    private void InitializeInputManager()
+    {
+        if (inputManager != null && enableUserRecordingControl)
+        {
+            // Input manager will automatically control user visualizer visibility
+            DebugLog("User recording input control enabled");
+        }
+        else if (enableUserRecordingControl)
+        {
+            Debug.LogWarning("[ChorusingManager] UserRecordingInputManager not found! User recording control disabled.");
+        }
     }
 
     private void PreAnalyzeNativeRecording()

@@ -733,6 +733,10 @@ MonoBehaviour:
     brightness: 1
     analysisInterval: 0.05
     loopAudioTriggerOffset: 1
+    enableVisibilityControl: 1
+    invisibleAlpha: 0
+    visibleAlpha: 1
+    visibilityTransitionSpeed: 5
 --- !u!1 &521007459
 GameObject:
   m_ObjectHideFlags: 0
@@ -1422,6 +1426,10 @@ MonoBehaviour:
     brightness: 1
     analysisInterval: 0.1
     loopAudioTriggerOffset: 1
+    enableVisibilityControl: 1
+    invisibleAlpha: 0
+    visibleAlpha: 1
+    visibilityTransitionSpeed: 5
   showRuntimeInfo: 1
 --- !u!4 &897609204
 Transform:
@@ -1828,6 +1836,10 @@ MonoBehaviour:
     brightness: 0.7
     analysisInterval: 0.05
     loopAudioTriggerOffset: 4
+    enableVisibilityControl: 1
+    invisibleAlpha: 0
+    visibleAlpha: 1
+    visibilityTransitionSpeed: 5
 --- !u!4 &1109803072
 Transform:
   m_ObjectHideFlags: 0
@@ -1906,6 +1918,8 @@ MonoBehaviour:
   requestedSilenceDuration: 0.6
   quantizedSilenceDuration: 0
   enableDebugLogging: 1
+  inputManager: {fileID: 1668862832}
+  enableUserRecordingControl: 1
 --- !u!1 &1285873726
 GameObject:
   m_ObjectHideFlags: 0
@@ -2771,6 +2785,10 @@ MonoBehaviour:
   noiseGateMultiplier: 1
   ambientCalibrationTime: 2
   ambientSamplePercentage: 0.7
+  enablePitchRangeFilter: 1
+  minAcceptablePitch: 60
+  maxAcceptablePitch: 600
+  debugPitchFilter: 0
   enableDebugLogging: 0
   debugNoiseGate: 0
 --- !u!82 &1512065943
@@ -3131,6 +3149,52 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1634217329}
   m_CullTransparentMesh: 1
+--- !u!1 &1668862831
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1668862833}
+  - component: {fileID: 1668862832}
+  m_Layer: 0
+  m_Name: InputManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1668862832
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1668862831}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6d2976cdecb63f4eb108f67233d7154, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enableDebugLogging: 1
+  showInputStatus: 1
+--- !u!4 &1668862833
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1668862831}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1763168542
 GameObject:
   m_ObjectHideFlags: 0
@@ -3710,3 +3774,4 @@ SceneRoots:
   - {fileID: 102657346}
   - {fileID: 1763168543}
   - {fileID: 922159798}
+  - {fileID: 1668862833}
