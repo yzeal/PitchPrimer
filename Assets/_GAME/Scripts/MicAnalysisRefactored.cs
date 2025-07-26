@@ -71,6 +71,10 @@ public class MicAnalysisRefactored : MonoBehaviour
     private int totalPitchesDetected = 0;
     private int pitchesFilteredByRange = 0;
     
+    // ? NEW: Continuous audio recording for high-quality capture
+    private int lastContinuousPosition = 0;
+    private bool enableContinuousAudioCapture = true;
+    
     void Start()
     {
         InitializeComponents();
@@ -79,11 +83,20 @@ public class MicAnalysisRefactored : MonoBehaviour
     
     void Update()
     {
-        if (isAnalyzing && audioSource != null && audioSource.isPlaying && 
-            Time.time - lastAnalysisTime >= analysisInterval)
+        if (isAnalyzing && audioSource != null && audioSource.isPlaying)
         {
-            AnalyzePitch();
-            lastAnalysisTime = Time.time;
+            // ? NEW: Continuous audio capture (every frame)
+            if (enableContinuousAudioCapture)
+            {
+                CaptureContinuousAudio();
+            }
+            
+            // ? EXISTING: Pitch analysis (every 0.1s)
+            if (Time.time - lastAnalysisTime >= analysisInterval)
+            {
+                AnalyzePitch();
+                lastAnalysisTime = Time.time;
+            }
         }
     }
     
@@ -150,6 +163,9 @@ public class MicAnalysisRefactored : MonoBehaviour
         if (InitializeMicrophone())
         {
             isAnalyzing = true;
+            
+            // ? NEW: Reset continuous capture position
+            lastContinuousPosition = 0;
             
             // Reset calibration
             if (enableNoiseGate)
@@ -274,11 +290,40 @@ public class MicAnalysisRefactored : MonoBehaviour
     public AudioClip GetMicrophoneClip() => microphoneClip;
     public int GetCurrentMicrophonePosition() => Microphone.GetPosition(deviceName);
     
+    // ? NEW: Capture continuous audio stream for recording
+    private void CaptureContinuousAudio()
+    {
+        if (microphoneClip == null) return;
+        
+        int currentPosition = Microphone.GetPosition(deviceName);
+        
+        // Handle position wrap-around
+        if (currentPosition < lastContinuousPosition)
+        {
+            lastContinuousPosition = 0;
+        }
+        
+        // Capture all new samples since last frame
+        if (currentPosition > lastContinuousPosition)
+        {
+            int sampleCount = currentPosition - lastContinuousPosition;
+            float[] newSamples = new float[sampleCount];
+            
+            // Get raw microphone data
+            microphoneClip.GetData(newSamples, lastContinuousPosition);
+            
+            // ?? CRITICAL: Send continuous, unprocessed audio stream
+            OnRawAudioData?.Invoke(newSamples);
+            
+            lastContinuousPosition = currentPosition;
+        }
+    }
+    
     private void AnalyzePitch()
     {
         if (microphoneClip == null) return;
         
-        // Audio-Daten abrufen
+        // Audio-Daten für ANALYSE abrufen (bleibt unverändert)
         int micPosition = Microphone.GetPosition(deviceName);
         if (micPosition < analysisSettings.bufferLength) return;
         
@@ -288,39 +333,26 @@ public class MicAnalysisRefactored : MonoBehaviour
         
         microphoneClip.GetData(audioBuffer, startPosition);
         
-        // ? NEW: Store copy of audio data and fire event
-        if (lastAudioBuffer == null || lastAudioBuffer.Length != audioBuffer.Length)
-        {
-            lastAudioBuffer = new float[audioBuffer.Length];
-        }
-        System.Array.Copy(audioBuffer, lastAudioBuffer, audioBuffer.Length);
+        // ? REMOVED: No more raw audio sharing here - done in CaptureContinuousAudio()
         
-        // ? NEW: Fire raw audio event for subscribers (like UserAudioRecorder)
-        OnRawAudioData?.Invoke(lastAudioBuffer);
-        
-        // Verwende geteilte Analyse-Engine
+        // Pitch analysis (unchanged)
         float timestamp = Time.time;
         PitchDataPoint pitchData = PitchAnalyzer.AnalyzeAudioBuffer(audioBuffer, timestamp, analysisSettings);
         
-        // Apply noise gate if enabled
+        // Apply noise gate and filters
         bool shouldPass = UpdateNoiseGate(pitchData.audioLevel);
-        
         if (!shouldPass)
         {
-            if (debugNoiseGate && enableDebugLogging)
-                DebugLog($"Audio blocked by noise gate - Level: {pitchData.audioLevel:F4}");
             pitchData = new PitchDataPoint(timestamp, 0f, 0f, pitchData.audioLevel);
         }
         else
         {
-            // NEW: Apply pitch range filter after noise gate
             pitchData = ApplyPitchRangeFilter(pitchData);
         }
         
-        // ?? MODERN EVENT-DRIVEN ARCHITECTURE: Fire event instead of storing in variables
+        // Fire pitch event
         OnPitchDetected?.Invoke(pitchData);
         
-        // Optional: Debug für interessante Pitches
         if (enableDebugLogging && pitchData.HasPitch)
         {
             DebugLog($"Pitch detected: {pitchData.frequency:F1}Hz");
