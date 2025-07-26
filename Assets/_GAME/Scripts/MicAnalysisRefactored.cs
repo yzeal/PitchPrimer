@@ -51,6 +51,10 @@ public class MicAnalysisRefactored : MonoBehaviour
     // Example: micAnalysis.OnPitchDetected += (pitchData) => { /* handle pitch data */ };
     public System.Action<PitchDataPoint> OnPitchDetected;
     
+    // ? NEW: Audio data sharing for recording
+    public System.Action<float[]> OnRawAudioData; // Event für rohe Audio-Daten
+    private float[] lastAudioBuffer; // Kopie der letzten Audio-Daten
+    
     private AudioSource audioSource;
     private AudioClip microphoneClip;
     private float[] audioBuffer;
@@ -255,6 +259,21 @@ public class MicAnalysisRefactored : MonoBehaviour
         }
     }
     
+    // ? NEW: Public API for audio buffer access
+    public float[] GetLatestAudioBuffer()
+    {
+        if (lastAudioBuffer == null) return null;
+        
+        // Return a copy to prevent external modification
+        float[] copy = new float[lastAudioBuffer.Length];
+        System.Array.Copy(lastAudioBuffer, copy, lastAudioBuffer.Length);
+        return copy;
+    }
+    
+    // ? NEW: Public getter for microphone clip access (for UserAudioRecorder)
+    public AudioClip GetMicrophoneClip() => microphoneClip;
+    public int GetCurrentMicrophonePosition() => Microphone.GetPosition(deviceName);
+    
     private void AnalyzePitch()
     {
         if (microphoneClip == null) return;
@@ -268,6 +287,16 @@ public class MicAnalysisRefactored : MonoBehaviour
             startPosition = microphoneClip.samples + startPosition;
         
         microphoneClip.GetData(audioBuffer, startPosition);
+        
+        // ? NEW: Store copy of audio data and fire event
+        if (lastAudioBuffer == null || lastAudioBuffer.Length != audioBuffer.Length)
+        {
+            lastAudioBuffer = new float[audioBuffer.Length];
+        }
+        System.Array.Copy(audioBuffer, lastAudioBuffer, audioBuffer.Length);
+        
+        // ? NEW: Fire raw audio event for subscribers (like UserAudioRecorder)
+        OnRawAudioData?.Invoke(lastAudioBuffer);
         
         // Verwende geteilte Analyse-Engine
         float timestamp = Time.time;
@@ -288,7 +317,7 @@ public class MicAnalysisRefactored : MonoBehaviour
             pitchData = ApplyPitchRangeFilter(pitchData);
         }
         
-        // ? MODERN EVENT-DRIVEN ARCHITECTURE: Fire event instead of storing in variables
+        // ?? MODERN EVENT-DRIVEN ARCHITECTURE: Fire event instead of storing in variables
         OnPitchDetected?.Invoke(pitchData);
         
         // Optional: Debug für interessante Pitches

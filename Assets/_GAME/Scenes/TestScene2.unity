@@ -2333,7 +2333,7 @@ MonoBehaviour:
   initialAudioDelay: 0.5
   requestedSilenceDuration: 0.6
   quantizedSilenceDuration: 0
-  enableDebugLogging: 0
+  enableDebugLogging: 1
   inputManager: {fileID: 1668862832}
   enableUserRecordingControl: 1
 --- !u!114 &1126997250
@@ -3573,7 +3573,7 @@ MonoBehaviour:
   minAcceptablePitch: 60
   maxAcceptablePitch: 600
   debugPitchFilter: 0
-  enableDebugLogging: 0
+  enableDebugLogging: 1
   debugNoiseGate: 0
 --- !u!82 &1512065943
 AudioSource:

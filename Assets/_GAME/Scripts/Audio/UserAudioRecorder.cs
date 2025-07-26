@@ -5,7 +5,7 @@ using System.Linq;
 
 public class UserAudioRecorder : MonoBehaviour
 {
-    [Header("?? USER AUDIO RECORDER - Real Microphone Recording")]
+    [Header("??? USER AUDIO RECORDER - Shared Microphone Recording")]
     [Space(10)]
     [Header("Recording Settings")]
     [SerializeField] private int sampleRate = 44100;
@@ -35,11 +35,6 @@ public class UserAudioRecorder : MonoBehaviour
     private List<PitchDataPoint> collectedPitchData;
     private float recordingStartTime;
     
-    // ? NEW: Real microphone recording instead of synthetic audio
-    private string microphoneDevice;
-    private AudioClip microphoneClip;
-    private int lastMicrophonePosition = 0;
-    
     void Start()
     {
         InitializeComponents();
@@ -47,46 +42,19 @@ public class UserAudioRecorder : MonoBehaviour
         InitializeAudioBuffer();
     }
     
-    void Update()
-    {
-        // ? NEW: Record real microphone audio while recording
-        if (isRecording)
-        {
-            RecordRealMicrophoneAudio();
-        }
-    }
+    // ? REMOVED: No Update() needed - audio comes via events
     
-    // ? NEW: Record actual microphone audio data
-    private void RecordRealMicrophoneAudio()
+    // ? NEW: Receive audio data from MicAnalysisRefactored
+    private void OnRawAudioDataReceived(float[] audioData)
     {
-        if (microphoneClip == null || !Microphone.IsRecording(microphoneDevice))
-            return;
+        if (!isRecording || audioData == null) return;
         
-        int currentPosition = Microphone.GetPosition(microphoneDevice);
+        // Add audio data to our buffer
+        audioBuffer.AddSamples(audioData);
         
-        if (currentPosition < lastMicrophonePosition)
+        if (enableDebugLogging && Time.frameCount % 60 == 0) // Every second
         {
-            // Microphone position wrapped around
-            lastMicrophonePosition = 0;
-        }
-        
-        if (currentPosition > lastMicrophonePosition)
-        {
-            // Get new samples since last update
-            int sampleCount = currentPosition - lastMicrophonePosition;
-            float[] newSamples = new float[sampleCount];
-            
-            microphoneClip.GetData(newSamples, lastMicrophonePosition);
-            
-            // Add real microphone samples to buffer
-            audioBuffer.AddSamples(newSamples);
-            
-            lastMicrophonePosition = currentPosition;
-            
-            if (enableDebugLogging && Time.frameCount % 60 == 0) // Every second
-            {
-                DebugLog($"?? Recording real audio: {audioBuffer.CurrentSize} samples, Mic pos: {currentPosition}");
-            }
+            DebugLog($"?? Recording audio from shared source: {audioBuffer.CurrentSize} samples");
         }
     }
     
@@ -100,7 +68,7 @@ public class UserAudioRecorder : MonoBehaviour
         
         if (enableDebugLogging && pitchData.HasPitch)
         {
-            DebugLog($"?? Pitch detected: {pitchData.frequency:F1}Hz, Audio samples: {audioBuffer.CurrentSize}");
+            DebugLog($"?? Pitch metadata: {pitchData.frequency:F1}Hz, Audio samples: {audioBuffer.CurrentSize}");
         }
     }
     
@@ -108,85 +76,19 @@ public class UserAudioRecorder : MonoBehaviour
     {
         if (isRecording) return;
         
-        // Try to get better duration calculation
         CalculateRecordingDuration();
-        
-        DebugLog("??? Starting real microphone recording");
+        DebugLog("??? Starting audio recording (shared microphone)");
         
         // Clear previous data
         audioBuffer.Clear();
         collectedPitchData.Clear();
         recordingStartTime = Time.time;
-        lastMicrophonePosition = 0;
         
-        // ? NEW: Start real microphone recording
-        if (!StartMicrophoneRecording())
-        {
-            Debug.LogError("[UserAudioRecorder] Failed to start microphone recording!");
-            return;
-        }
-        
+        // ? NO microphone startup - just use shared source
         isRecording = true;
         OnRecordingStateChanged?.Invoke(true);
         
-        DebugLog($"? Real microphone recording started - duration target: {recordingDuration:F1}s");
-    }
-    
-    // ? NEW: Start actual microphone recording
-    private bool StartMicrophoneRecording()
-    {
-        // Get microphone device from MicAnalysisRefactored
-        if (micAnalysis != null && !string.IsNullOrEmpty(micAnalysis.CurrentDevice))
-        {
-            microphoneDevice = micAnalysis.CurrentDevice;
-        }
-        else
-        {
-            // Fallback to default microphone
-            if (Microphone.devices.Length > 0)
-            {
-                microphoneDevice = Microphone.devices[0];
-            }
-            else
-            {
-                Debug.LogError("[UserAudioRecorder] No microphone devices found!");
-                return false;
-            }
-        }
-        
-        try
-        {
-            // Start recording with a long buffer (60 seconds)
-            microphoneClip = Microphone.Start(microphoneDevice, true, 60, sampleRate);
-            
-            if (microphoneClip == null)
-            {
-                Debug.LogError($"[UserAudioRecorder] Failed to start microphone: {microphoneDevice}");
-                return false;
-            }
-            
-            // Wait for microphone to start
-            int timeout = 0;
-            while (!(Microphone.GetPosition(microphoneDevice) > 0) && timeout < 1000)
-            {
-                timeout++;
-                System.Threading.Thread.Sleep(1);
-            }
-            
-            if (timeout >= 1000)
-            {
-                Debug.LogError("[UserAudioRecorder] Microphone startup timeout!");
-                return false;
-            }
-            
-            DebugLog($"? Microphone recording started: {microphoneDevice} at {sampleRate}Hz");
-            return true;
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[UserAudioRecorder] Failed to start microphone: {e.Message}");
-            return false;
-        }
+        DebugLog($"? Audio recording started (shared source) - duration target: {recordingDuration:F1}s");
     }
     
     public void StopRecordingAndSave()
@@ -198,16 +100,10 @@ public class UserAudioRecorder : MonoBehaviour
         isRecording = false;
         OnRecordingStateChanged?.Invoke(false);
         
-        // ? NEW: Stop microphone recording
-        if (!string.IsNullOrEmpty(microphoneDevice) && Microphone.IsRecording(microphoneDevice))
-        {
-            Microphone.End(microphoneDevice);
-            DebugLog($"?? Stopped microphone recording: {microphoneDevice}");
-        }
+        // ? NO microphone stopping - shared source continues
         
-        DebugLog($"?? Total real audio samples collected: {audioBuffer.CurrentSize}, Target: {recordingDuration * sampleRate:F0}");
+        DebugLog($"?? Total audio samples collected: {audioBuffer.CurrentSize}, Target: {recordingDuration * sampleRate:F0}");
         
-        // Save the collected data
         if (audioBuffer.HasData)
         {
             SaveRecordingToWAV();
@@ -220,7 +116,7 @@ public class UserAudioRecorder : MonoBehaviour
     
     private void SaveRecordingToWAV()
     {
-        // Get the last X seconds of real audio data
+        // Get the last X seconds of audio data
         float[] audioData = audioBuffer.GetLastSeconds(recordingDuration);
         
         if (audioData == null || audioData.Length == 0)
@@ -242,7 +138,7 @@ public class UserAudioRecorder : MonoBehaviour
         if (success)
         {
             float actualDuration = audioData.Length / (float)sampleRate;
-            DebugLog($"? Real audio recording saved: {recordingFilePath}");
+            DebugLog($"? Audio recording saved: {recordingFilePath}");
             DebugLog($"?? File info: {audioData.Length} samples, {actualDuration:F1}s, {collectedPitchData.Count} pitch points");
             
             OnRecordingSaved?.Invoke(recordingFilePath);
@@ -276,7 +172,8 @@ public class UserAudioRecorder : MonoBehaviour
         if (micAnalysis != null)
         {
             micAnalysis.OnPitchDetected += OnPitchDataReceived;
-            DebugLog("? Subscribed to MicAnalysisRefactored.OnPitchDetected");
+            micAnalysis.OnRawAudioData += OnRawAudioDataReceived; // ? NEW: Subscribe to audio data
+            DebugLog("? Subscribed to MicAnalysisRefactored events (pitch + audio)");
         }
         else
         {
@@ -355,7 +252,7 @@ public class UserAudioRecorder : MonoBehaviour
         audioBuffer = new CircularAudioBuffer(bufferSamples);
         collectedPitchData = new List<PitchDataPoint>();
         
-        DebugLog($"? Audio buffer initialized: {bufferSamples} sample capacity for real microphone recording");
+        DebugLog($"? Audio buffer initialized: {bufferSamples} sample capacity for shared microphone recording");
     }
     
     private void DebugLog(string message)
@@ -372,6 +269,7 @@ public class UserAudioRecorder : MonoBehaviour
         if (micAnalysis != null)
         {
             micAnalysis.OnPitchDetected -= OnPitchDataReceived;
+            micAnalysis.OnRawAudioData -= OnRawAudioDataReceived; // ? NEW: Unsubscribe
         }
         
         if (inputManager != null)
@@ -380,10 +278,6 @@ public class UserAudioRecorder : MonoBehaviour
             inputManager.OnRecordingStopped -= StopRecordingAndSave;
         }
         
-        // Stop microphone recording
-        if (isRecording)
-        {
-            StopRecordingAndSave();
-        }
+        // ? NO microphone cleanup needed - shared source handles it
     }
 }
