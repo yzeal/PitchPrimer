@@ -459,7 +459,7 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 - **Input Action Asset:** Created and configured with cross-platform bindings
 - **Input Manager:** Complete implementation with debugging and simulation
 - **PitchVisualizer integration:** Visibility control seamlessly integrated
-- **Transition system:** Smooth fade in/out implemented and optimized
+- **Transition system:** Smooth fade in/out transitions implemented and optimized
 
 #### Ready for Testing:
 1. **Setup validation:** Ensure UserRecordingInputActions.inputactions asset is properly configured
@@ -906,3 +906,171 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 - **Input Action Assets:** Visual configuration preferred over hardcoded input
 
 **STATUS:** Complete voice calibration, filtering, and user recording control system ready for comprehensive testing! 🎙️🔍🎮
+
+## NEXT UPDATE - Day 11: Scoring System Implementation Planning 🏆
+
+### 🎯 SCORING SYSTEM ARCHITECTURE PLANNING
+**GAMEPLAY TRANSITION:** Implementing scoring screen after user recording completion
+- **Current workflow completion:** Start Chorusing → User practice → Record → Stop recording → File saved ✅
+- **New workflow extension:** File saved → Scoring analysis → Scoring screen → Again/Next options
+
+#### Planned Scoring Flow:
+
+    UserAudioRecorder.OnRecordingSaved event triggers:
+    1. ChorusingManager.StopChorusing() - Clean exit from chorusing state
+    2. ScoringManager.StartScoring(userRecordingPath) - Initialize scoring analysis  
+    3. GameStateManager.TransitionToState(GameState.Scoring) - Switch UI to scoring screen
+    4. ScoringUI displays: Native clip visualization (top) + User clip visualization (bottom)
+    5. User interaction: Play/Stop buttons for both clips + Again/Next navigation
+
+### 🏗️ PLANNED ARCHITECTURE: Single-Scene State Management
+**DESIGN DECISION:** GameStateManager with Canvas switching instead of multiple scenes
+- **Rationale:** Avoids scene transition delays, preserves shared components, smoother audio transitions
+- **State enum:** MainMenu, Chorusing, Scoring, Settings
+- **Canvas management:** Hide/show different UI canvases based on current state
+- **Component coordination:** ScoringManager works with existing ChorusingManager and UserAudioRecorder
+
+#### Planned Components:
+
+    GameStateManager:
+    - Canvas chorusingCanvas, scoringCanvas
+    - ChorusingManager chorusingManager
+    - ScoringManager scoringManager (NEW)
+    - TransitionToState(GameState newState)
+    - Clean enter/exit state management
+
+### 🎵 SCORING MANAGER CORE DESIGN
+**PRIMARY COMPONENT:** Handles clip loading, analysis, and scoring calculation
+- **Event integration:** Subscribes to UserAudioRecorder.OnRecordingSaved for automatic triggering
+- **Audio loading:** Loads user recording WAV file as AudioClip for analysis and playback
+- **Dual visualization:** Uses two PitchVisualizer instances for side-by-side comparison
+- **Placeholder scoring:** Simple pitch curve and rhythm matching algorithms initially
+- **Audio playback:** Independent AudioSource controls for native and user clips
+
+#### Planned ScoringManager API:
+
+    public class ScoringManager : MonoBehaviour
+    {
+        [Header("Components")]
+        public ChorusingManager chorusingManager;
+        public PitchVisualizer nativeVisualizer;  // Top display
+        public PitchVisualizer userVisualizer;    // Bottom display
+        public AudioSource nativeAudioSource;
+        public AudioSource userAudioSource;
+        
+        // Events for GameStateManager
+        public System.Action OnScoringComplete;
+        public System.Action OnRetryRequested;
+        public System.Action OnNextRequested;
+        
+        public void StartScoring(string userRecordingPath);
+        private void LoadUserRecording(string filePath);
+        private void CalculateScores();
+        private void SetupVisualizations();
+    }
+
+### 🎮 SCORING UI DESIGN SPECIFICATION
+**USER INTERFACE:** Side-by-side visualization with audio controls and navigation
+- **Layout:** Native clip visualization (top), User clip visualization (bottom)
+- **Audio controls:** Play/Stop button for each clip (independent playback)
+- **Score display:** Pitch Score and Rhythm Score (placeholder values initially)
+- **Navigation:** Again button (return to chorusing), Next button (placeholder for next clip)
+- **Visual feedback:** Button state changes (Play → Stop during playback)
+
+#### Planned UI Elements:
+
+    ScoringUI Canvas:
+    - Native Clip Visualizer Area (top half)
+    - User Clip Visualizer Area (bottom half)
+    - Native Clip Play/Stop Button
+    - User Clip Play/Stop Button  
+    - Pitch Score Display (0-100 placeholder)
+    - Rhythm Score Display (0-100 placeholder)
+    - Again Button → GameStateManager.TransitionToState(Chorusing)
+    - Next Button → Future: load next exercise clip
+
+### 📊 PLACEHOLDER SCORING ALGORITHMS
+**INITIAL IMPLEMENTATION:** Simple comparison metrics for pitch and rhythm
+- **Pitch scoring:** Compare frequency curves using mean squared error or correlation
+- **Rhythm scoring:** Compare timing patterns and speaking pace
+- **Score normalization:** Convert raw metrics to 0-100 percentage scores
+- **Future enhancement:** More sophisticated DTW (Dynamic Time Warping) algorithms
+
+#### Planned Scoring Methods:
+
+    private float CalculatePitchScore(List<PitchDataPoint> native, List<PitchDataPoint> user)
+    {
+        // Simple correlation or MSE between pitch curves
+        // Return 0-100 score
+    }
+    
+    private float CalculateRhythmScore(List<PitchDataPoint> native, List<PitchDataPoint> user)  
+    {
+        // Compare speaking pace and timing patterns
+        // Return 0-100 score
+    }
+
+### 🔄 STATE TRANSITION WORKFLOW
+**CLEAN TRANSITIONS:** Robust state management with proper cleanup
+- **Chorusing → Scoring:** Stop audio, clear visualizations, load scoring data
+- **Scoring → Chorusing:** Clear scoring data, reset visualizations, restart chorusing
+- **Scoring → Settings:** Pause scoring state, allow configuration changes
+- **Error handling:** Fallback states and recovery mechanisms
+
+#### Planned Transition Logic:
+
+    private void ExitCurrentState()
+    {
+        switch (currentState)
+        {
+            case GameState.Chorusing:
+                chorusingManager.StopChorusing();
+                break;
+            case GameState.Scoring:
+                scoringManager.StopScoring();
+                break;
+        }
+    }
+
+### 🎯 IMMEDIATE IMPLEMENTATION PRIORITIES
+**DEVELOPMENT ORDER:** Step-by-step implementation approach
+1. **ScoringManager (Highest):** Core scoring logic and clip loading
+2. **GameStateManager (Medium):** State transition infrastructure  
+3. **ScoringUI (Lower):** Visual interface and user controls
+4. **Placeholder algorithms (Lowest):** Simple scoring calculations
+
+### 📋 FUTURE ENHANCEMENTS PLANNED
+**ADVANCED FEATURES:** Building on scoring foundation
+- **Multiple exercises:** Sequence of native clips with progression tracking
+- **Score persistence:** Save user scores and track improvement over time
+- **Adaptive difficulty:** Adjust scoring sensitivity based on user performance
+- **Detailed feedback:** Visual highlighting of specific pitch/rhythm issues
+- **Advanced algorithms:** DTW, MFCC analysis, prosody matching
+
+### 🔧 INTEGRATION POINTS WITH EXISTING SYSTEMS
+**LEVERAGING CURRENT INFRASTRUCTURE:** Using established components and patterns
+- **MicAnalysisRefactored:** Same pitch analysis engine for consistency
+- **PitchVisualizer:** Reuse existing visualization system for scoring display
+- **UserAudioRecorder:** OnRecordingSaved event as scoring trigger
+- **WAV loading:** Extend existing audio loading patterns for user recordings
+- **Event architecture:** Maintain event-driven design for loose coupling
+
+### ⚠️ TESTING CONSIDERATIONS
+**VALIDATION REQUIREMENTS:** Ensuring robust scoring system
+- **Audio file loading:** Test WAV loading from persistentDataPath
+- **Clip synchronization:** Verify native and user clips align properly
+- **Score accuracy:** Validate scoring algorithms produce reasonable results
+- **UI responsiveness:** Test Play/Stop button state management
+- **State transitions:** Verify smooth transitions between chorusing and scoring
+- **Error handling:** Test missing files, corrupted audio, analysis failures
+
+### 📚 ARCHITECTURE PRINCIPLES MAINTAINED
+**CONSISTENT DESIGN:** Following established patterns and principles
+- **Event-driven:** Loose coupling via events and callbacks
+- **Single responsibility:** Each component has clear, focused purpose
+- **Testability:** Components can be unit tested independently
+- **Modularity:** Scoring system integrates without modifying existing code
+- **Performance:** Efficient algorithms and minimal UI updates
+- **Cross-platform:** Works on all target platforms (PC, Mac, iOS, Android)
+
+**STATUS:** Scoring system architecture planned and ready for implementation! Next step: ScoringManager core implementation 🏆
