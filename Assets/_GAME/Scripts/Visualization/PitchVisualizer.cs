@@ -144,9 +144,9 @@ public class PitchVisualizer : MonoBehaviour
     // Statistics for debugging (NO automatic adaptation)
     private List<float> observedPitches = new List<float>();
     private int cubeCreationCount = 0;
-    
+
     // Existing variables (mostly unchanged)
-    private bool isNativeTrack = false;
+    [SerializeField] private bool isNativeTrack = false;
     private float lastPlaybackTime = 0f;
     private List<PitchDataPoint> originalNativePitchData;
     private float nativeClipDuration = 0f;
