@@ -1,10 +1,38 @@
-using System;
-using System.IO;
 using UnityEngine;
+using System.IO;
+using System;
 
 // COPILOT CONTEXT: WAV file export utility for user recordings
 // Implements WAV format as specified in Notes.md (16-bit, Mono, 44.1kHz)
 // Cross-platform compatible with Unity's persistent data path
+
+[System.Serializable]
+public class AudioFileInfo
+{
+    public string FilePath { get; set; }
+    public long FileSize { get; set; }
+    public int SampleRate { get; set; }
+    public int Channels { get; set; }
+    public int BitsPerSample { get; set; }
+    public float Duration { get; set; }
+    public uint DataSize { get; set; }
+    
+    public override string ToString()
+    {
+        return $"AudioFile: {Duration:F1}s, {SampleRate}Hz, {Channels}ch, {BitsPerSample}bit, {FileSize / 1024f:F1}KB";
+    }
+    
+    public string GetDetailedInfo()
+    {
+        return $"File: {System.IO.Path.GetFileName(FilePath)}\n" +
+               $"Duration: {Duration:F2} seconds\n" +
+               $"Sample Rate: {SampleRate} Hz\n" +
+               $"Channels: {Channels}\n" +
+               $"Bit Depth: {BitsPerSample} bit\n" +
+               $"File Size: {FileSize / 1024f:F1} KB\n" +
+               $"Data Size: {DataSize / 1024f:F1} KB";
+    }
+}
 
 public static class WAVExporter
 {
@@ -146,22 +174,5 @@ public static class WAVExporter
             Debug.LogError($"[WAVExporter] Failed to read WAV info: {e.Message}");
             return null;
         }
-    }
-}
-
-[System.Serializable]
-public class AudioFileInfo
-{
-    public string FilePath;
-    public long FileSize;
-    public int SampleRate;
-    public int Channels;
-    public int BitsPerSample;
-    public float Duration;
-    public uint DataSize;
-    
-    public override string ToString()
-    {
-        return $"WAV: {SampleRate}Hz, {Channels}ch, {BitsPerSample}bit, {Duration:F1}s, {FileSize / 1024f:F1}KB";
     }
 }
