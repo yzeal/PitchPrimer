@@ -194,21 +194,22 @@ public class ScoringUI : MonoBehaviour
         // Reset scores
         UpdateScoreDisplay(0, 0, 0);
         
-        // Reset buttons
+        // Reset status
+        if (statusText != null)
+            statusText.text = "Ready for scoring...";
+        
+        // Stop any running animations
+        if (scoreAnimationCoroutine != null)
+        {
+            StopCoroutine(scoreAnimationCoroutine);
+            scoreAnimationCoroutine = null;
+        }
+        
+        // Reset button states
         UpdateNativePlayButton(false);
         UpdateUserPlayButton(false);
         
-        // Hide loading indicator
-        SetLoadingState(false);
-        
-        // Reset progress
-        if (progressSlider != null)
-        {
-            progressSlider.value = 0f;
-            progressSlider.gameObject.SetActive(false);
-        }
-        
-        DebugLog("UI state reset");
+        DebugLog("?? UI state reset for new scoring session");
     }
     
     // Event Handlers
@@ -218,18 +219,29 @@ public class ScoringUI : MonoBehaviour
         
         DebugLog($"?? Scores received: Pitch={pitchScore:F1}, Rhythm={rhythmScore:F1}, Overall={overallScore:F1}");
         
-        if (enableScoreAnimations)
+        // FIXED: Ensure canvas is active before starting animation
+        if (enableScoreAnimations && gameObject.activeInHierarchy)
         {
             AnimateScoreDisplay(pitchScore, rhythmScore, overallScore);
         }
         else
         {
+            DebugLog("?? Canvas inactive or animations disabled - using direct score update");
             UpdateScoreDisplay(pitchScore, rhythmScore, overallScore);
         }
         
         // Update status
         if (statusText != null)
             statusText.text = "Scoring complete!";
+        
+        // FIXED: Enable UI controls after score calculation
+        SetAudioControlsEnabled(true);
+        
+        if (againButton != null)
+            againButton.interactable = true;
+        
+        if (nextButton != null)
+            nextButton.interactable = true;
     }
     
     private void OnClipsLoaded(AudioClip nativeClip, AudioClip userClip)
@@ -272,10 +284,22 @@ public class ScoringUI : MonoBehaviour
         if (state == GameState.Scoring)
         {
             DebugLog("?? Entering scoring state");
+            
+            // FIXED: Initialize UI state for scoring
+            ResetUIState();
             SetLoadingState(true);
             
             if (statusText != null)
                 statusText.text = "Analyzing your performance...";
+            
+            // FIXED: Ensure controls are initially disabled
+            SetAudioControlsEnabled(false);
+            
+            if (againButton != null)
+                againButton.interactable = false;
+            
+            if (nextButton != null)
+                nextButton.interactable = false;
         }
     }
     
@@ -403,12 +427,22 @@ public class ScoringUI : MonoBehaviour
         if (overallScoreText != null) overallScoreText.color = overallColor;
     }
     
+    // Neue Methode: Safe Animation Start
     private void AnimateScoreDisplay(float targetPitch, float targetRhythm, float targetOverall)
     {
         if (scoreAnimationCoroutine != null)
             StopCoroutine(scoreAnimationCoroutine);
         
-        scoreAnimationCoroutine = StartCoroutine(AnimateScoresCoroutine(targetPitch, targetRhythm, targetOverall));
+        // FIXED: Verify canvas is active and component is enabled
+        if (gameObject.activeInHierarchy && enabled)
+        {
+            scoreAnimationCoroutine = StartCoroutine(AnimateScoresCoroutine(targetPitch, targetRhythm, targetOverall));
+        }
+        else
+        {
+            DebugLog("?? Cannot start animation - GameObject inactive or component disabled");
+            UpdateScoreDisplay(targetPitch, targetRhythm, targetOverall);
+        }
     }
     
     private System.Collections.IEnumerator AnimateScoresCoroutine(float targetPitch, float targetRhythm, float targetOverall)

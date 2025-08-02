@@ -23,9 +23,9 @@ public class GameStateManager : MonoBehaviour
     [SerializeField] private ScoringManager scoringManager;
     
     [Header("State Configuration")]
-    [SerializeField] private GameState initialState = GameState.MainMenu;
-    [SerializeField] private bool autoStartChorusing = false; // For testing
-    
+    [SerializeField] private GameState initialState = GameState.MainMenu; // Sicherstellen dass es MainMenu ist
+    [SerializeField] private bool autoStartChorusing = false; // Sollte false sein
+
     [Header("Transition Settings")]
     [SerializeField] private float transitionDelay = 0.1f;
     [SerializeField] private bool enableSmoothTransitions = true;
@@ -57,12 +57,15 @@ public class GameStateManager : MonoBehaviour
         // Small delay to ensure all components are initialized
         yield return new WaitForSeconds(0.1f);
         
-        if (autoStartChorusing)
+        // FIXED: Nur auto-start wenn explizit aktiviert UND nicht im Editor-Test-Modus
+        if (autoStartChorusing && Application.isPlaying)
         {
+            DebugLog("?? Auto-starting Chorusing (enabled in Inspector)");
             TransitionToState(GameState.Chorusing);
         }
         else
         {
+            DebugLog($"?? Starting with initial state: {initialState}");
             TransitionToState(initialState);
         }
     }

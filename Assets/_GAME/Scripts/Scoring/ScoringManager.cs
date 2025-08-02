@@ -131,6 +131,12 @@ public class ScoringManager : MonoBehaviour
     {
         DebugLog("?? Starting scoring process...");
         
+        // FIXED: Notify GameStateManager FIRST, then wait for canvas to be active
+        OnScoringComplete?.Invoke(); // This triggers canvas activation
+        
+        // Wait for canvas to be activated
+        yield return new WaitForSeconds(0.2f);
+        
         // Step 1: Load user recording as AudioClip
         yield return StartCoroutine(LoadUserRecording(userRecordingPath));
         
@@ -156,9 +162,8 @@ public class ScoringManager : MonoBehaviour
         // Step 5: Setup visualizations
         SetupVisualizations();
         
-        // Step 6: Notify completion
+        // Step 6: Set scoring as active (moved to end)
         isScoringActive = true;
-        OnScoringComplete?.Invoke();
         
         DebugLog("? Scoring process complete!");
     }

@@ -16,6 +16,7 @@ public class UserAudioRecorder : MonoBehaviour
     [SerializeField] private MicAnalysisRefactored micAnalysis;
     [SerializeField] private UserRecordingInputManager inputManager;
     [SerializeField] private ChorusingManager chorusingManager;
+    [SerializeField] private GameStateManager gameStateManager; // NEW: State awareness
     
     [Header("Recording Duration")]
     [SerializeField] private float recordingDuration = 5.0f;
@@ -42,9 +43,9 @@ public class UserAudioRecorder : MonoBehaviour
         InitializeAudioBuffer();
     }
     
-    // ? REMOVED: No Update() needed - audio comes via events
+    // ?? REMOVED: No Update() needed - audio comes via events
     
-    // ? NEW: Receive audio data from MicAnalysisRefactored
+    // ?? NEW: Receive audio data from MicAnalysisRefactored
     private void OnRawAudioDataReceived(float[] audioData)
     {
         if (!isRecording || audioData == null) return;
@@ -58,7 +59,7 @@ public class UserAudioRecorder : MonoBehaviour
         }
     }
     
-    // ? IMPROVED: Simplified pitch data handler (only for metadata)
+    // ?? IMPROVED: Simplified pitch data handler (only for metadata)
     private void OnPitchDataReceived(PitchDataPoint pitchData)
     {
         if (!isRecording) return;
@@ -74,6 +75,13 @@ public class UserAudioRecorder : MonoBehaviour
     
     public void StartRecording()
     {
+        // NEW: State-aware recording - only allow in Chorusing state
+        if (!CanRecord())
+        {
+            DebugLog("? Recording blocked - not in Chorusing state");
+            return;
+        }
+        
         if (isRecording) return;
         
         CalculateRecordingDuration();
@@ -84,7 +92,7 @@ public class UserAudioRecorder : MonoBehaviour
         collectedPitchData.Clear();
         recordingStartTime = Time.time;
         
-        // ? NO microphone startup - just use shared source
+        // ?? NO microphone startup - just use shared source
         isRecording = true;
         OnRecordingStateChanged?.Invoke(true);
         
@@ -100,7 +108,7 @@ public class UserAudioRecorder : MonoBehaviour
         isRecording = false;
         OnRecordingStateChanged?.Invoke(false);
         
-        // ? NO microphone stopping - shared source continues
+        // ?? NO microphone stopping - shared source continues
         
         DebugLog($"?? Total audio samples collected: {audioBuffer.CurrentSize}, Target: {recordingDuration * sampleRate:F0}");
         
@@ -112,6 +120,25 @@ public class UserAudioRecorder : MonoBehaviour
         {
             Debug.LogWarning("[UserAudioRecorder] No audio data to save!");
         }
+    }
+    
+    // NEW: State-aware recording check
+    private bool CanRecord()
+    {
+        if (gameStateManager == null)
+        {
+            DebugLog("?? No GameStateManager - allowing recording (fallback)");
+            return true;
+        }
+        
+        bool canRecord = gameStateManager.CurrentState == GameState.Chorusing;
+        
+        if (!canRecord)
+        {
+            DebugLog($"?? Recording not allowed in state: {gameStateManager.CurrentState}");
+        }
+        
+        return canRecord;
     }
     
     private void SaveRecordingToWAV()
@@ -138,7 +165,7 @@ public class UserAudioRecorder : MonoBehaviour
         if (success)
         {
             float actualDuration = audioData.Length / (float)sampleRate;
-            DebugLog($"? Audio recording saved: {recordingFilePath}");
+            DebugLog($"?? Audio recording saved: {recordingFilePath}");
             DebugLog($"?? File info: {audioData.Length} samples, {actualDuration:F1}s, {collectedPitchData.Count} pitch points");
             
             OnRecordingSaved?.Invoke(recordingFilePath);
@@ -155,6 +182,7 @@ public class UserAudioRecorder : MonoBehaviour
     public float RecordingDuration => recordingDuration;
     public bool HasSavedRecording => File.Exists(recordingFilePath);
     public int CollectedPitchPoints => collectedPitchData?.Count ?? 0;
+    public bool CanStartRecording => CanRecord(); // NEW: Public check
     
     private void InitializeComponents()
     {
@@ -168,11 +196,15 @@ public class UserAudioRecorder : MonoBehaviour
         if (chorusingManager == null)
             chorusingManager = FindFirstObjectByType<ChorusingManager>();
         
+        // NEW: Auto-find GameStateManager
+        if (gameStateManager == null)
+            gameStateManager = FindFirstObjectByType<GameStateManager>();
+        
         // Subscribe to events
         if (micAnalysis != null)
         {
             micAnalysis.OnPitchDetected += OnPitchDataReceived;
-            micAnalysis.OnRawAudioData += OnRawAudioDataReceived; // ? NEW: Subscribe to audio data
+            micAnalysis.OnRawAudioData += OnRawAudioDataReceived; // ?? NEW: Subscribe to audio data
             DebugLog("? Subscribed to MicAnalysisRefactored events (pitch + audio)");
         }
         else
@@ -204,14 +236,14 @@ public class UserAudioRecorder : MonoBehaviour
             return;
         }
         
-        // ? FIX: Only calculate if we don't have a valid duration yet
+        // ?? FIX: Only calculate if we don't have a valid duration yet
         if (recordingDuration > 0f && recordingDuration != 5.0f) // 5.0f is our fallback value
         {
             DebugLog($"Duration already calculated: {recordingDuration:F1}s");
             return;
         }
         
-        // ? FIX: Find ChorusingManager if not found yet
+        // ?? FIX: Find ChorusingManager if not found yet
         if (chorusingManager == null)
         {
             chorusingManager = FindFirstObjectByType<ChorusingManager>();
@@ -233,15 +265,15 @@ public class UserAudioRecorder : MonoBehaviour
             float nativeClipDuration = nativePitchData.Count * 0.1f; // 0.1s per analysis interval
             recordingDuration = nativeClipDuration + silenceDuration;
             
-            DebugLog($"? Auto-calculated duration: {recordingDuration:F1}s " +
+            DebugLog($"?? Auto-calculated duration: {recordingDuration:F1}s " +
                     $"(Native: {nativeClipDuration:F1}s + Silence: {silenceDuration:F1}s)");
             
-            // ? FIX: Reinitialize buffer with correct size
+            // ?? FIX: Reinitialize buffer with correct size
             InitializeAudioBuffer();
         }
         else
         {
-            DebugLog($"?? Native pitch data not ready yet, keeping fallback: {recordingDuration:F1}s");
+            DebugLog($"? Native pitch data not ready yet, keeping fallback: {recordingDuration:F1}s");
         }
     }
     
@@ -252,7 +284,7 @@ public class UserAudioRecorder : MonoBehaviour
         audioBuffer = new CircularAudioBuffer(bufferSamples);
         collectedPitchData = new List<PitchDataPoint>();
         
-        DebugLog($"? Audio buffer initialized: {bufferSamples} sample capacity for shared microphone recording");
+        DebugLog($"?? Audio buffer initialized: {bufferSamples} sample capacity for shared microphone recording");
     }
     
     private void DebugLog(string message)
@@ -269,7 +301,7 @@ public class UserAudioRecorder : MonoBehaviour
         if (micAnalysis != null)
         {
             micAnalysis.OnPitchDetected -= OnPitchDataReceived;
-            micAnalysis.OnRawAudioData -= OnRawAudioDataReceived; // ? NEW: Unsubscribe
+            micAnalysis.OnRawAudioData -= OnRawAudioDataReceived; // ?? NEW: Unsubscribe
         }
         
         if (inputManager != null)
@@ -278,6 +310,6 @@ public class UserAudioRecorder : MonoBehaviour
             inputManager.OnRecordingStopped -= StopRecordingAndSave;
         }
         
-        // ? NO microphone cleanup needed - shared source handles it
+        // ?? NO microphone cleanup needed - shared source handles it
     }
 }
