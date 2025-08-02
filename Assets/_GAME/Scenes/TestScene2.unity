@@ -756,6 +756,7 @@ GameObject:
   - component: {fileID: 244819776}
   - component: {fileID: 244819775}
   - component: {fileID: 244819778}
+  - component: {fileID: 244819779}
   m_Layer: 5
   m_Name: ScoringCanvas
   m_TagString: Untagged
@@ -920,6 +921,18 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   enableDebugLogging: 1
+--- !u!225 &244819779
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 244819773}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &251617899
 GameObject:
   m_ObjectHideFlags: 0
@@ -1201,7 +1214,7 @@ MonoBehaviour:
   calibrationCanvas: {fileID: 0}
   chorusingManager: {fileID: 1126997249}
   scoringManager: {fileID: 2050263522}
-  initialState: 0
+  initialState: 1
   autoStartChorusing: 0
   transitionDelay: 0.1
   enableSmoothTransitions: 1
