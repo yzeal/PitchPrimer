@@ -65,6 +65,12 @@ public class ScoringUI : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogging = true;
     
+    [Header("Error Display")]
+    [SerializeField] private GameObject errorPanel; // NEW: Panel for error messages
+    [SerializeField] private TextMeshProUGUI errorMessageText; // NEW: Error message text
+    [SerializeField] private Button errorRetryButton; // NEW: Retry button in error panel
+    [SerializeField] private GameObject scorePanel; // Reference to normal score display panel
+    
     // Component references
     private ScoringManager scoringManager;
     private GameStateManager gameStateManager;
@@ -134,6 +140,10 @@ public class ScoringUI : MonoBehaviour
         if (nextButton != null)
             nextButton.onClick.AddListener(OnNextButtonClicked);
         
+        // NEW: Error panel retry button
+        if (errorRetryButton != null)
+            errorRetryButton.onClick.AddListener(OnErrorRetryButtonClicked);
+        
         DebugLog("Button listeners setup complete");
     }
     
@@ -172,6 +182,7 @@ public class ScoringUI : MonoBehaviour
             scoringManager.OnClipsLoaded += OnClipsLoaded;
             scoringManager.OnNativeClipPlaybackChanged += OnNativePlaybackChanged;
             scoringManager.OnUserClipPlaybackChanged += OnUserPlaybackChanged;
+            scoringManager.OnScoringError += OnScoringError; // NEW: Subscribe to error events
             
             DebugLog("? Subscribed to ScoringManager events");
         }
@@ -193,6 +204,9 @@ public class ScoringUI : MonoBehaviour
     {
         // Reset scores
         UpdateScoreDisplay(0, 0, 0);
+        
+        // Show score panel, hide error panel
+        ShowScoreState();
         
         // Reset status
         if (statusText != null)
@@ -218,6 +232,9 @@ public class ScoringUI : MonoBehaviour
         float overallScore = (pitchScore + rhythmScore) / 2f;
         
         DebugLog($"?? Scores received: Pitch={pitchScore:F1}, Rhythm={rhythmScore:F1}, Overall={overallScore:F1}");
+        
+        // NEW: Show score panel (hide error panel if it was showing)
+        ShowScoreState();
         
         // FIXED: Ensure canvas is active before starting animation
         if (enableScoreAnimations && gameObject.activeInHierarchy)
@@ -310,6 +327,73 @@ public class ScoringUI : MonoBehaviour
             DebugLog("?? Exiting scoring state");
             ResetUIState();
         }
+    }
+    
+    // NEW: Handle scoring errors (like recording too short)
+    private void OnScoringError(string errorMessage)
+    {
+        DebugLog($"? Scoring error received: {errorMessage}");
+        
+        // Show error panel and hide score panel
+        ShowErrorState(errorMessage);
+        
+        // Update status
+        if (statusText != null)
+            statusText.text = "Analysis failed - see error message";
+        
+        // Disable audio controls since we don't have valid data
+        SetAudioControlsEnabled(false);
+        
+        // Keep navigation buttons enabled for retry
+        if (againButton != null)
+            againButton.interactable = true;
+        
+        if (nextButton != null)
+            nextButton.interactable = true;
+    }
+    
+    // NEW: Show error state instead of scores
+    private void ShowErrorState(string errorMessage)
+    {
+        // Hide score panel
+        if (scorePanel != null)
+            scorePanel.SetActive(false);
+        
+        // Show error panel
+        if (errorPanel != null)
+            errorPanel.SetActive(true);
+        
+        // Set error message
+        if (errorMessageText != null)
+            errorMessageText.text = errorMessage;
+        
+        // Stop loading state
+        SetLoadingState(false);
+        
+        DebugLog($"?? Error state displayed: {errorMessage}");
+    }
+    
+    // NEW: Show score state (normal successful scoring)
+    private void ShowScoreState()
+    {
+        // Show score panel
+        if (scorePanel != null)
+            scorePanel.SetActive(true);
+        
+        // Hide error panel
+        if (errorPanel != null)
+            errorPanel.SetActive(false);
+        
+        DebugLog("?? Score state displayed");
+    }
+    
+    // NEW: Error retry button handler
+    private void OnErrorRetryButtonClicked()
+    {
+        DebugLog("?? Error retry requested by user");
+        
+        // Same as regular retry
+        OnAgainButtonClicked();
     }
     
     // Button Event Handlers
@@ -589,6 +673,7 @@ public class ScoringUI : MonoBehaviour
             scoringManager.OnClipsLoaded -= OnClipsLoaded;
             scoringManager.OnNativeClipPlaybackChanged -= OnNativePlaybackChanged;
             scoringManager.OnUserClipPlaybackChanged -= OnUserPlaybackChanged;
+            scoringManager.OnScoringError -= OnScoringError; // NEW: Cleanup error event
         }
         
         if (gameStateManager != null)

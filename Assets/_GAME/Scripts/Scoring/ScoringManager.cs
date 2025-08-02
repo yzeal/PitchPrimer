@@ -10,6 +10,9 @@ using System.Linq;
 
 public class ScoringManager : MonoBehaviour
 {
+    // Add this new event near the other events
+    public System.Action<string> OnScoringError; // NEW: For error messages like "Recording too short"
+    
     [Header("?? SCORING MANAGER - Audio Comparison & Analysis")]
     [Space(10)]
     
@@ -54,6 +57,10 @@ public class ScoringManager : MonoBehaviour
     // Playback state
     private bool isNativeClipPlaying = false;
     private bool isUserClipPlaying = false;
+    
+    [Header("Validation Settings")]
+    [SerializeField] private float minimumRecordingRatio = 0.3f; // User recording must be at least 30% of native length
+    [SerializeField] private float minimumAbsoluteLength = 1.0f; // At least 1 second
     
     void Start()
     {
@@ -143,6 +150,7 @@ public class ScoringManager : MonoBehaviour
         if (userRecordingClip == null)
         {
             Debug.LogError("[ScoringManager] Failed to load user recording!");
+            OnScoringError?.Invoke("Failed to load your recording. Please try again.");
             yield break;
         }
         
@@ -150,19 +158,27 @@ public class ScoringManager : MonoBehaviour
         if (!GetNativeClipData())
         {
             Debug.LogError("[ScoringManager] Failed to get native clip data!");
+            OnScoringError?.Invoke("Failed to load native recording data. Please restart the exercise.");
             yield break;
         }
         
         // Step 3: Analyze user recording
         AnalyzeUserRecording();
         
-        // Step 4: Calculate scores
+        // NEW: Step 4: Validate recording length
+        if (!ValidateRecordingLength())
+        {
+            // Error message already sent via OnScoringError event
+            yield break; // Don't continue with scoring
+        }
+        
+        // Step 5: Calculate scores (only if validation passed)
         CalculateScores();
         
-        // Step 5: Setup visualizations
+        // Step 6: Setup visualizations
         SetupVisualizations();
         
-        // Step 6: Set scoring as active (moved to end)
+        // Step 7: Set scoring as active (moved to end)
         isScoringActive = true;
         
         DebugLog("? Scoring process complete!");
@@ -231,6 +247,40 @@ public class ScoringManager : MonoBehaviour
         
         var stats = PitchAnalyzer.CalculateStatistics(userPitchData);
         DebugLog($"?? User recording analysis: {stats}");
+    }
+    
+    private bool ValidateRecordingLength()
+    {
+        if (userRecordingClip == null || nativePitchData == null)
+        {
+            DebugLog("?? Cannot validate - missing clip or native data");
+            return false;
+        }
+        
+        float userDuration = userRecordingClip.length;
+        float nativeDuration = nativePitchData.Count * analysisInterval;
+        float durationRatio = userDuration / nativeDuration;
+        
+        DebugLog($"?? Recording validation: User={userDuration:F1}s, Native={nativeDuration:F1}s, Ratio={durationRatio:F2}");
+        
+        // Check minimum absolute length
+        if (userDuration < minimumAbsoluteLength)
+        {
+            DebugLog($"? Recording too short: {userDuration:F1}s < {minimumAbsoluteLength:F1}s minimum");
+            OnScoringError?.Invoke($"Recording too short ({userDuration:F1}s). Please record for at least {minimumAbsoluteLength:F1}s.");
+            return false;
+        }
+        
+        // Check relative length compared to native
+        if (durationRatio < minimumRecordingRatio)
+        {
+            DebugLog($"? Recording too short relative to native: {durationRatio:F1}% < {minimumRecordingRatio * 100:F0}% required");
+            OnScoringError?.Invoke($"Recording too short. Please record for at least {minimumRecordingRatio * 100:F0}% of the native duration ({nativeDuration * minimumRecordingRatio:F1}s).");
+            return false;
+        }
+        
+        DebugLog("? Recording length validation passed");
+        return true;
     }
     
     private void CalculateScores()
