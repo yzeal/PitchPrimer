@@ -8720,10 +8720,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settings:
-    cubePrefab: {fileID: 4946344182149780891, guid: 23b274bf34b8ba94fa5945e065a517ee, type: 3}
+    cubePrefab: {fileID: 7736499998437451336, guid: 3450cc7ab6a47bd4ea2de27bca1c276f, type: 3}
     cubeParent: {fileID: 1806699172}
-    cubeSpacing: 0.8
-    cubeScale: {x: 0.8, y: 1, z: 0.1}
+    cubeSpacing: 10
+    cubeScale: {x: 0.1, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
     nativeRepetitions: 5
@@ -8731,10 +8731,10 @@ MonoBehaviour:
     showFocalIndicator: 0
     focalIndicatorPrefab: {fileID: 0}
     pitchRange:
-      personalMinPitch: 100
-      personalMaxPitch: 300
+      personalMinPitch: 250
+      personalMaxPitch: 500
       minCubeHeight: 0.1
-      maxCubeHeight: 5
+      maxCubeHeight: 3
       outOfRangeMode: 0
       outOfRangeColor: {r: 1, g: 0, b: 0, a: 1}
       showRangeDebug: 0
@@ -9338,10 +9338,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settings:
-    cubePrefab: {fileID: 4946344182149780891, guid: 23b274bf34b8ba94fa5945e065a517ee, type: 3}
+    cubePrefab: {fileID: 7736499998437451336, guid: 3450cc7ab6a47bd4ea2de27bca1c276f, type: 3}
     cubeParent: {fileID: 1943162190}
-    cubeSpacing: 0.8
-    cubeScale: {x: 0.8, y: 1, z: 0.1}
+    cubeSpacing: 10
+    cubeScale: {x: 0.1, y: 1, z: 0.1}
     maxCubes: 30
     trackOffset: {x: 0, y: 0, z: 0}
     nativeRepetitions: 5
@@ -9352,7 +9352,7 @@ MonoBehaviour:
       personalMinPitch: 100
       personalMaxPitch: 300
       minCubeHeight: 0.1
-      maxCubeHeight: 5
+      maxCubeHeight: 3
       outOfRangeMode: 0
       outOfRangeColor: {r: 1, g: 0, b: 0, a: 1}
       showRangeDebug: 0
@@ -10135,6 +10135,7 @@ GameObject:
   - component: {fileID: 2088564843}
   - component: {fileID: 2088564845}
   - component: {fileID: 2088564844}
+  - component: {fileID: 2088564846}
   m_Layer: 5
   m_Name: StatusPanel
   m_TagString: Untagged
@@ -10202,6 +10203,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2088564842}
   m_CullTransparentMesh: 1
+--- !u!225 &2088564846
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2088564842}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &2136858428
 GameObject:
   m_ObjectHideFlags: 0
