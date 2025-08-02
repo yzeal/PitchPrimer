@@ -5,7 +5,7 @@ using System.Linq;
 // COPILOT CONTEXT: Modular visualization system for pitch data
 // Supports both real-time and pre-rendered visualizations
 // Designed for chorusing with dual-track display
-// UPDATED: Removed InitialAudioTriggerOffset - only Loop triggers remain
+// UPDATED: Added static display capabilities for scoring screen
 
 [System.Serializable]
 public class PersonalPitchRange
@@ -167,6 +167,9 @@ public class PitchVisualizer : MonoBehaviour
     private bool userRecordingVisible = false;
     private bool isTransitioningVisibility = false;
     
+    // NEW: Static display cubes for scoring screen
+    private List<GameObject> staticDisplayCubes = new List<GameObject>();
+    
     private enum CubeState
     {
         Played, Current, Future
@@ -196,6 +199,104 @@ public class PitchVisualizer : MonoBehaviour
         {
             UpdateCubeVisibility();
         }
+    }
+
+    // NEW: Static display method for scoring screen
+    public void DisplayStaticPitchData(List<PitchDataPoint> pitchData, int maxDisplayPoints = 100)
+    {
+        if (pitchData == null || pitchData.Count == 0)
+        {
+            Debug.LogWarning($"[PitchVisualizer] {gameObject.name}: No pitch data provided for static display");
+            return;
+        }
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name}: Creating static display with {pitchData.Count} points");
+        
+        // Clear existing visualization
+        ClearAll();
+        
+        // Sample data if needed for performance
+        var displayData = pitchData;
+        if (pitchData.Count > maxDisplayPoints)
+        {
+            displayData = SampleDataForDisplay(pitchData, maxDisplayPoints);
+            Debug.Log($"[PitchVisualizer] {gameObject.name}: Sampled {pitchData.Count} ? {displayData.Count} points");
+        }
+        
+        // Create static cubes
+        CreateStaticCubes(displayData);
+    }
+    
+    private List<PitchDataPoint> SampleDataForDisplay(List<PitchDataPoint> originalData, int maxPoints)
+    {
+        var sampled = new List<PitchDataPoint>();
+        float step = (float)originalData.Count / maxPoints;
+        
+        for (int i = 0; i < maxPoints; i++)
+        {
+            int index = Mathf.RoundToInt(i * step);
+            if (index < originalData.Count)
+            {
+                sampled.Add(originalData[index]);
+            }
+        }
+        
+        return sampled;
+    }
+    
+    private void CreateStaticCubes(List<PitchDataPoint> pitchData)
+    {
+        if (settings.cubePrefab == null || settings.cubeParent == null)
+        {
+            Debug.LogError($"[PitchVisualizer] {gameObject.name}: Missing cube prefab or parent for static display");
+            return;
+        }
+        
+        // Clear any existing static cubes
+        ClearStaticCubes();
+        
+        float totalWidth = pitchData.Count * settings.cubeSpacing;
+        float startX = -totalWidth / 2f; // Center the display
+        
+        for (int i = 0; i < pitchData.Count; i++)
+        {
+            var pitchPoint = pitchData[i];
+            GameObject cube = CreateCube(pitchPoint, true, i);
+            
+            if (cube != null)
+            {
+                // Position cubes in a line from left to right
+                float cubeX = startX + (i * settings.cubeSpacing);
+                Vector3 position = new Vector3(cubeX, 0, 0) + settings.trackOffset;
+                cube.transform.localPosition = position;
+                
+                // Set standard appearance (no state-based modifications)
+                var renderer = cube.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    Color cubeColor = GetCubeColor(pitchPoint);
+                    cubeColor.a = 1f; // Full opacity for static display
+                    renderer.material.color = cubeColor;
+                }
+                
+                // Add to static display list for cleanup
+                staticDisplayCubes.Add(cube);
+            }
+        }
+        
+        Debug.Log($"[PitchVisualizer] {gameObject.name}: Created {pitchData.Count} static cubes");
+    }
+    
+    private void ClearStaticCubes()
+    {
+        foreach (var cube in staticDisplayCubes)
+        {
+            if (cube != null)
+            {
+                DestroyImmediate(cube);
+            }
+        }
+        staticDisplayCubes.Clear();
     }
 
     // Manual calibration methods
@@ -366,6 +467,11 @@ public class PitchVisualizer : MonoBehaviour
         if (preRenderedCubes == null)
         {
             preRenderedCubes = new List<GameObject>();
+        }
+        
+        if (staticDisplayCubes == null)
+        {
+            staticDisplayCubes = new List<GameObject>();
         }
         
         ValidateSettings();
@@ -1000,6 +1106,9 @@ public class PitchVisualizer : MonoBehaviour
                 if (cube != null) DestroyImmediate(cube);
             }
         }
+        
+        // Static display cubes
+        ClearStaticCubes();
         
         // Native repetitions
         ClearNativeRepetitions();

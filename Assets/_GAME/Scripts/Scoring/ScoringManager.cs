@@ -382,26 +382,29 @@ public class ScoringManager : MonoBehaviour
     {
         DebugLog("?? Setting up visualizations...");
         
-        // Setup native visualizer with existing data
-        if (nativeVisualizer != null && nativePitchData != null)
+        // Setup static visualizations for scoring comparison
+        if (nativeVisualizer != null && userVisualizer != null && 
+            nativePitchData != null && userPitchData != null)
         {
-            nativeVisualizer.ClearAll();
-            // Note: We'll need to add a method to PitchVisualizer for static display
-            DebugLog($"?? Native visualization ready: {nativePitchData.Count} points");
+            // Display static pitch data for comparison
+            nativeVisualizer.DisplayStaticPitchData(nativePitchData);
+            userVisualizer.DisplayStaticPitchData(userPitchData);
+            
+            DebugLog($"?? Static visualizations created: Native={nativePitchData.Count}, User={userPitchData.Count} points");
         }
-        
-        // Setup user visualizer with analyzed data
-        if (userVisualizer != null && userPitchData != null)
+        else
         {
-            userVisualizer.ClearAll();
-            // Note: We'll need to add a method to PitchVisualizer for static display
-            DebugLog($"?? User visualization ready: {userPitchData.Count} points");
+            Debug.LogWarning("[ScoringManager] Missing visualizers or pitch data for static display");
         }
         
         // Setup audio sources
         if (nativeAudioSource != null && chorusingManager != null)
         {
-            nativeAudioSource.clip = chorusingManager.GetComponent<AudioSource>()?.clip;
+            var chorusingAudioSource = chorusingManager.GetComponent<AudioSource>();
+            if (chorusingAudioSource != null)
+            {
+                nativeAudioSource.clip = chorusingAudioSource.clip;
+            }
         }
         
         if (userAudioSource != null && userRecordingClip != null)
@@ -411,6 +414,8 @@ public class ScoringManager : MonoBehaviour
         
         // Notify UI that clips are ready
         OnClipsLoaded?.Invoke(nativeAudioSource.clip, userAudioSource.clip);
+        
+        DebugLog("? Scoring visualizations setup complete");
     }
     
     private void UpdatePlaybackStates()
@@ -450,7 +455,7 @@ public class ScoringManager : MonoBehaviour
             DebugLog("?? Stopped native clip");
         }
     }
-    
+
     public void PlayUserClip()
     {
         if (userAudioSource != null && userAudioSource.clip != null)
@@ -459,7 +464,7 @@ public class ScoringManager : MonoBehaviour
             DebugLog("?? Playing user clip");
         }
     }
-    
+
     public void StopUserClip()
     {
         if (userAudioSource != null)
@@ -468,21 +473,21 @@ public class ScoringManager : MonoBehaviour
             DebugLog("?? Stopped user clip");
         }
     }
-    
+
     public void RequestRetry()
     {
         DebugLog("?? Retry requested");
         StopScoring();
         OnRetryRequested?.Invoke();
     }
-    
+
     public void RequestNext()
     {
         DebugLog("?? Next requested");
         StopScoring();
         OnNextRequested?.Invoke();
     }
-    
+
     public void StopScoring()
     {
         if (!isScoringActive) return;
