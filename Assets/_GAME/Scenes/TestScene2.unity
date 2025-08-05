@@ -10788,6 +10788,7 @@ MonoBehaviour:
     minimumSegmentDuration: 0.1
     useDynamicTimeWarping: 0
     normalizeByVoiceRange: 1
+  useNormalizedScoring: 1
   enableDebugLogging: 1
   minimumRecordingRatio: 0.3
   minimumAbsoluteLength: 1
