@@ -5249,6 +5249,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b471e28baad26334aae51627cc901758, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  currentRecording: {fileID: 11400000, guid: c2736e2a58e9226449ee11ed35b82760, type: 2}
   micAnalysis: {fileID: 1512065942}
   userVisualizer: {fileID: 453507924}
   nativeVisualizer: {fileID: 1109803071}
@@ -5262,7 +5263,6 @@ MonoBehaviour:
     historySize: 10
     useSmoothing: 1
     enableDebugLogging: 1
-  nativeClip: {fileID: 8300000, guid: 2032675219f1d9641a7f02911190f844, type: 3}
   analysisInterval: 0.05
   initialAudioDelay: 0.5
   requestedSilenceDuration: 0.6

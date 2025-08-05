@@ -1,0 +1,350 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31baf52a5e6d15c4db47e682efdf089d, type: 3}
+  m_Name: 3-1_mayo_Mai
+  m_EditorClassIdentifier: 
+  audioClip: {fileID: 8300000, guid: 2032675219f1d9641a7f02911190f844, type: 3}
+  pitchRangeMin: 277.20023
+  pitchRangeMax: 400.32532
+  autoCalculatePitchRange: 1
+  allowManualPitchAdjustment: 1
+  kanjiText: "\u30DE\u30E8\u30CD\u30FC\u30BA\u98DF\u3079\u308C\u306A\u3044\u3093\u3067\u3001\u306A\u3057\u306B\u3057\u3066\u3082\u3089\u3063\u3066\u3082\u3044\u3044\u3067\u3059\u304B\uFF1F"
+  kanaText: "\u30DE\u30E8\u30CD\u30FC\u30BA\u305F\u3079\u308C\u306A\u3044\u3093\u3067\u3001\u306A\u3057\u306B\u3057\u3066\u3082\u3089\u3063\u3066\u3082\u3044\u3044\u3067\u3059\u304B\uFF1F"
+  romajiText: Mayoneezu taberenainde, nashinishite morattemo ii desuka?
+  speakerName: Mai
+  speakerGender: 2
+  speakerNotes: 
+  recordingName: 3-1_mayo_Mai
+  description: Mayo
+  difficultyLevel: 1
+  recordingType: 2
+  analysisSettings:
+    minFrequency: 80
+    maxFrequency: 800
+    correlationThreshold: 0.1
+    sampleRate: 44100
+    bufferLength: 4096
+    historySize: 10
+    useSmoothing: 1
+    enableDebugLogging: 0
+  persistAnalysisData: 1
+  cachedPitchData:
+  - timestamp: 0
+    frequency: 322.2871
+    confidence: 0.8228555
+    audioLevel: 0.060176477
+  - timestamp: 0.05
+    frequency: 335.12457
+    confidence: 0.84352064
+    audioLevel: 0.061389945
+  - timestamp: 0.1
+    frequency: 350.65588
+    confidence: 0.8447727
+    audioLevel: 0.062901385
+  - timestamp: 0.15
+    frequency: 364.3823
+    confidence: 0.8605846
+    audioLevel: 0.0663919
+  - timestamp: 0.2
+    frequency: 375.3634
+    confidence: 0.8728075
+    audioLevel: 0.069061205
+  - timestamp: 0.25
+    frequency: 382.14856
+    confidence: 0.8744692
+    audioLevel: 0.06747863
+  - timestamp: 0.3
+    frequency: 386.7423
+    confidence: 0.84509605
+    audioLevel: 0.06928941
+  - timestamp: 0.35
+    frequency: 389.17548
+    confidence: 0.83784
+    audioLevel: 0.06542872
+  - timestamp: 0.4
+    frequency: 390.0971
+    confidence: 0.78007746
+    audioLevel: 0.05709086
+  - timestamp: 0.45
+    frequency: 383.24927
+    confidence: 0.7899969
+    audioLevel: 0.054606907
+  - timestamp: 0.5
+    frequency: 371.47733
+    confidence: 0.8034306
+    audioLevel: 0.05400129
+  - timestamp: 0.55
+    frequency: 361.05734
+    confidence: 0.7995502
+    audioLevel: 0.053901356
+  - timestamp: 0.6
+    frequency: 349.9648
+    confidence: 0.79643095
+    audioLevel: 0.05698338
+  - timestamp: 0.65
+    frequency: 340.02164
+    confidence: 0.770242
+    audioLevel: 0.0583445
+  - timestamp: 0.7
+    frequency: 330.3222
+    confidence: 0.76345354
+    audioLevel: 0.056888003
+  - timestamp: 0.75
+    frequency: 321.18906
+    confidence: 0.7594899
+    audioLevel: 0.05266496
+  - timestamp: 0.8
+    frequency: 314.5457
+    confidence: 0.766198
+    audioLevel: 0.05213309
+  - timestamp: 0.85
+    frequency: 315.8189
+    confidence: 0.80671513
+    audioLevel: 0.05388871
+  - timestamp: 0.9
+    frequency: 318.75018
+    confidence: 0.81930834
+    audioLevel: 0.05529494
+  - timestamp: 0.95
+    frequency: 321.47318
+    confidence: 0.8845936
+    audioLevel: 0.057454195
+  - timestamp: 1
+    frequency: 327.72025
+    confidence: 0.89901674
+    audioLevel: 0.0566101
+  - timestamp: 1.05
+    frequency: 333.19388
+    confidence: 0.88546073
+    audioLevel: 0.05643292
+  - timestamp: 1.1
+    frequency: 334.822
+    confidence: 0.8916593
+    audioLevel: 0.0602451
+  - timestamp: 1.15
+    frequency: 335.71912
+    confidence: 0.87398654
+    audioLevel: 0.05729799
+  - timestamp: 1.2
+    frequency: 334.29102
+    confidence: 0.82258123
+    audioLevel: 0.0494625
+  - timestamp: 1.25
+    frequency: 330.60114
+    confidence: 0.7396351
+    audioLevel: 0.04235685
+  - timestamp: 1.3
+    frequency: 325.21017
+    confidence: 0.65425205
+    audioLevel: 0.038133428
+  - timestamp: 1.35
+    frequency: 317.82263
+    confidence: 0.5665361
+    audioLevel: 0.03400676
+  - timestamp: 1.4
+    frequency: 311.037
+    confidence: 0.48040113
+    audioLevel: 0.029742422
+  - timestamp: 1.45
+    frequency: 303.79556
+    confidence: 0.3930179
+    audioLevel: 0.025891615
+  - timestamp: 1.5
+    frequency: 296.2217
+    confidence: 0.30647212
+    audioLevel: 0.022738285
+  - timestamp: 1.55
+    frequency: 292.16507
+    confidence: 0.21755472
+    audioLevel: 0.020346174
+  - timestamp: 1.6
+    frequency: 295.0658
+    confidence: 0.15105355
+    audioLevel: 0.016647862
+  - timestamp: 1.65
+    frequency: 303.125
+    confidence: 0.14444941
+    audioLevel: 0.007495117
+  - timestamp: 1.7
+    frequency: 314.0739
+    confidence: 0.14426684
+    audioLevel: 0.0063776593
+  - timestamp: 1.75
+    frequency: 333.95886
+    confidence: 0.19909668
+    audioLevel: 0.01590733
+  - timestamp: 1.8
+    frequency: 351.61594
+    confidence: 0.27137712
+    audioLevel: 0.021985708
+  - timestamp: 1.85
+    frequency: 333.79276
+    confidence: 0.29119936
+    audioLevel: 0.024569718
+  - timestamp: 1.9
+    frequency: 357.19287
+    confidence: 0.3762093
+    audioLevel: 0.030046409
+  - timestamp: 1.95
+    frequency: 374.6436
+    confidence: 0.4636727
+    audioLevel: 0.037643716
+  - timestamp: 2
+    frequency: 379.33185
+    confidence: 0.54442495
+    audioLevel: 0.04265546
+  - timestamp: 2.05
+    frequency: 376.07275
+    confidence: 0.6269474
+    audioLevel: 0.046274904
+  - timestamp: 2.1
+    frequency: 368.06277
+    confidence: 0.6810837
+    audioLevel: 0.04855629
+  - timestamp: 2.15
+    frequency: 400.32532
+    confidence: 0.7004199
+    audioLevel: 0.050129104
+  - timestamp: 2.2
+    frequency: 387.49976
+    confidence: 0.6447366
+    audioLevel: 0.05061346
+  - timestamp: 2.25
+    frequency: 382.09995
+    confidence: 0.65933233
+    audioLevel: 0.05055771
+  - timestamp: 2.3
+    frequency: 371.7075
+    confidence: 0.6858384
+    audioLevel: 0.04590356
+  - timestamp: 2.35
+    frequency: 359.3725
+    confidence: 0.6970812
+    audioLevel: 0.042945642
+  - timestamp: 2.4
+    frequency: 360.25635
+    confidence: 0.7651138
+    audioLevel: 0.04541518
+  - timestamp: 2.45
+    frequency: 343.01294
+    confidence: 0.7519133
+    audioLevel: 0.04711647
+  - timestamp: 2.5
+    frequency: 326.34253
+    confidence: 0.7509741
+    audioLevel: 0.047321398
+  - timestamp: 2.55
+    frequency: 316.1471
+    confidence: 0.75110936
+    audioLevel: 0.04490291
+  - timestamp: 2.6
+    frequency: 312.7618
+    confidence: 0.66858697
+    audioLevel: 0.04127814
+  - timestamp: 2.65
+    frequency: 316.82864
+    confidence: 0.68642706
+    audioLevel: 0.041314974
+  - timestamp: 2.7
+    frequency: 277.20023
+    confidence: 0.7527511
+    audioLevel: 0.043748874
+  - timestamp: 2.75
+    frequency: 289.5069
+    confidence: 0.8173883
+    audioLevel: 0.0455276
+  - timestamp: 2.8
+    frequency: 289.04636
+    confidence: 0.8207408
+    audioLevel: 0.043183148
+  - timestamp: 2.85
+    frequency: 287.20355
+    confidence: 0.82839036
+    audioLevel: 0.04076659
+  - timestamp: 2.9
+    frequency: 288.2247
+    confidence: 0.82225657
+    audioLevel: 0.040621243
+  - timestamp: 2.95
+    frequency: 295.72687
+    confidence: 0.81906563
+    audioLevel: 0.039836917
+  - timestamp: 3
+    frequency: 303.42282
+    confidence: 0.83415455
+    audioLevel: 0.03643048
+  - timestamp: 3.05
+    frequency: 310.2718
+    confidence: 0.8253425
+    audioLevel: 0.03212438
+  - timestamp: 3.1
+    frequency: 315.2718
+    confidence: 0.8249824
+    audioLevel: 0.03488808
+  - timestamp: 3.15
+    frequency: 315.24707
+    confidence: 0.8999406
+    audioLevel: 0.03786492
+  - timestamp: 3.2
+    frequency: 356.23422
+    confidence: 0.8426186
+    audioLevel: 0.036174577
+  - timestamp: 3.25
+    frequency: 365.84207
+    confidence: 0.7758987
+    audioLevel: 0.032328192
+  - timestamp: 3.3
+    frequency: 350.13385
+    confidence: 0.7131946
+    audioLevel: 0.029900646
+  - timestamp: 3.35
+    frequency: 347.0396
+    confidence: 0.71243954
+    audioLevel: 0.028858174
+  - timestamp: 3.4
+    frequency: 349.28314
+    confidence: 0.66249865
+    audioLevel: 0.029748185
+  - timestamp: 3.45
+    frequency: 354.0527
+    confidence: 0.6354178
+    audioLevel: 0.031994037
+  - timestamp: 3.5
+    frequency: 357.65253
+    confidence: 0.63002455
+    audioLevel: 0.03125404
+  - timestamp: 3.55
+    frequency: 361.91232
+    confidence: 0.5953453
+    audioLevel: 0.028009819
+  - timestamp: 3.6
+    frequency: 361.6573
+    confidence: 0.56939644
+    audioLevel: 0.026900247
+  - timestamp: 3.65
+    frequency: 362.95255
+    confidence: 0.53424025
+    audioLevel: 0.023272857
+  - timestamp: 3.7
+    frequency: 368.9466
+    confidence: 0.4979528
+    audioLevel: 0.022046622
+  - timestamp: 3.75
+    frequency: 309.15326
+    confidence: 0.5460606
+    audioLevel: 0.024186132
+  - timestamp: 3.8
+    frequency: 288.62
+    confidence: 0.6023468
+    audioLevel: 0.027903821
+  isAnalyzed: 1
+  analysisVersion: 1.0

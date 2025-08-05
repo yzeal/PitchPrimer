@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Linq; // NEW: Für LINQ-Operationen
 
 // COPILOT CONTEXT: Main controller for chorusing exercises
-// Coordinates native recording playback with user microphone input
+// Coordinates native recording playbook with user microphone input
 // Manages dual-track visualization and synchronization
 // UPDATED: InitialAudioDelay system - Audio starts immediately, visual delays
 
 public class ChorusingManager : MonoBehaviour
 {
+    [Header("Native Recording Data")]
+    [SerializeField] private NativeRecording currentRecording; // Ersetzt AudioClip nativeClip
+    
     [Header("Components")]
     [SerializeField] private MicAnalysisRefactored micAnalysis;
     [SerializeField] private PitchVisualizer userVisualizer;
@@ -17,10 +20,7 @@ public class ChorusingManager : MonoBehaviour
 
     [Header("Analysis Settings")]
     [SerializeField] private PitchAnalysisSettings analysisSettings;
-
-    [Header("Native Recording")]
-    [SerializeField] private AudioClip nativeClip;
-    [SerializeField] private float analysisInterval = 0.1f;
+    [SerializeField] private float analysisInterval = 0.1f; // FIXED: Re-added missing field
 
     [Header("Audio Timing")]
     [Tooltip("Delay before starting cube movement to compensate for Unity audio start delay")]
@@ -52,15 +52,10 @@ public class ChorusingManager : MonoBehaviour
     {
         InitializeComponents();
         
-        // NEW: Initialize input manager
-        if (inputManager == null)
+        // NEW: Verwende voranalysierte Daten
+        if (currentRecording != null)
         {
-            inputManager = FindFirstObjectByType<UserRecordingInputManager>();
-        }
-        
-        if (nativeClip != null)
-        {
-            PreAnalyzeNativeRecording();
+            LoadNativeRecording();
         }
     }
 
@@ -102,7 +97,7 @@ public class ChorusingManager : MonoBehaviour
         // Setup audio source and START IMMEDIATELY
         if (nativeAudioSource != null)
         {
-            nativeAudioSource.clip = nativeClip;
+            nativeAudioSource.clip = currentRecording.AudioClip;
             nativeAudioSource.loop = false;
             nativeAudioSource.Play(); // Start audio immediately
             audioStartTime = Time.time;
@@ -190,7 +185,7 @@ public class ChorusingManager : MonoBehaviour
     // KEPT: Quantized silence calculation (still needed for visual sync)
     private void CalculateQuantizedSilence()
     {
-        if (nativeClip == null || nativePitchData == null)
+        if (currentRecording?.AudioClip == null || nativePitchData == null)
         {
             DebugLog("No native clip or pitch data available for quantization calculation");
             quantizedSilenceDuration = 0f;
@@ -209,7 +204,7 @@ public class ChorusingManager : MonoBehaviour
         int totalCubes = actualAudioCubes + requestedSilenceCubes;
         float visualAudioTime = actualAudioCubes * analysisInterval;
         float visualTotalTime = totalCubes * analysisInterval;
-        float actualSilenceNeeded = visualTotalTime - nativeClip.length;
+        float actualSilenceNeeded = visualTotalTime - currentRecording.AudioClip.length;
         quantizedSilenceDuration = actualSilenceNeeded;
         
         if (quantizedSilenceDuration < 0f)
@@ -277,112 +272,52 @@ public class ChorusingManager : MonoBehaviour
         }
     }
 
-    private void PreAnalyzeNativeRecording()
+    // Ersetzt PreAnalyzeNativeRecording()
+    private void LoadNativeRecording()
     {
-        if (nativeClip == null) 
+        if (currentRecording == null || !currentRecording.IsValid())
         {
-            DebugLog("No native clip assigned for pre-analysis");
+            Debug.LogError("No valid native recording assigned!");
             return;
         }
-
-        DebugLog($"Pre-analyzing native recording: {nativeClip.name}");
-
-        nativePitchData = PitchAnalyzer.PreAnalyzeAudioClip(nativeClip, analysisSettings, analysisInterval);
-
-        if (analysisSettings.useSmoothing)
+        
+        DebugLog($"Loading native recording: {currentRecording.RecordingName}");
+        DebugLog($"Speaker: {currentRecording.GetSpeakerInfo()}");
+        DebugLog($"Text: {currentRecording.KanjiText}");
+        
+        // Setup AudioSource
+        if (nativeAudioSource != null)
         {
-            nativePitchData = PitchAnalyzer.SmoothPitchData(nativePitchData, analysisSettings.historySize);
+            nativeAudioSource.clip = currentRecording.AudioClip;
         }
-
-        DebugLog($"Native recording analyzed: {nativePitchData.Count} data points");
-
-        // NEW: Debug logging für Pitch-Range bei verschiedenen Confidence-Thresholds
-        if (enableDebugLogging)
+        
+        // Use cached pitch data - NO analysis needed!
+        nativePitchData = currentRecording.GetPitchData(analysisInterval); // FIXED: Pass analysisInterval
+        
+        if (nativePitchData != null && nativePitchData.Count > 0)
         {
-            LogPitchRangeByConfidence();
-            
-            var stats = PitchAnalyzer.CalculateStatistics(nativePitchData);
-            DebugLog($"Native recording stats: {stats}");
+            DebugLog($"Loaded {nativePitchData.Count} cached pitch data points");
+            DebugLog($"Pitch range: {currentRecording.PitchRangeMin:F1}Hz - {currentRecording.PitchRangeMax:F1}Hz");
+        }
+        else
+        {
+            Debug.LogWarning("No pitch data available - recording may need analysis");
         }
     }
 
-    // NEW: Debug logging für Pitch-Range bei verschiedenen Confidence-Thresholds
-    private void LogPitchRangeByConfidence()
+    // NEW: Speaker filtering support
+    public bool MatchesSpeakerFilter(NativeRecordingGender? genderFilter = null, string speakerFilter = null)
     {
-        if (nativePitchData == null || nativePitchData.Count == 0)
-            return;
+        if (currentRecording == null) return false;
         
-        DebugLog("=== PITCH RANGE ANALYSIS BY CONFIDENCE THRESHOLDS ===");
-        
-        // Test verschiedene Confidence-Thresholds
-        float[] thresholds = { 0.0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f };
-        
-        foreach (float threshold in thresholds)
-        {
-            var validPitches = nativePitchData
-                .Where(p => p.HasPitch && p.confidence >= threshold)
-                .Select(p => p.frequency)
-                .ToList();
+        if (genderFilter.HasValue && currentRecording.SpeakerGender != genderFilter.Value)
+            return false;
             
-            if (validPitches.Count > 0)
-            {
-                float minPitch = validPitches.Min();
-                float maxPitch = validPitches.Max();
-                float avgPitch = validPitches.Average();
-                float range = maxPitch - minPitch;
-                
-                // FIXED: Use Count property instead of Count() method
-                int totalValidPitches = nativePitchData.Where(p => p.HasPitch).Count();
-                float coverage = (float)validPitches.Count / totalValidPitches;
-                
-                DebugLog($"  Confidence >= {threshold:F1}: " +
-                         $"Min={minPitch:F1}Hz, Max={maxPitch:F1}Hz, " +
-                         $"Avg={avgPitch:F1}Hz, Range={range:F1}Hz, " +
-                         $"Samples={validPitches.Count}/{nativePitchData.Count} ({coverage * 100f:F1}%)");
-            }
-            else
-            {
-                DebugLog($"  Confidence >= {threshold:F1}: No valid pitch data");
-            }
-        }
-        
-        // Zusätzliche Statistiken
-        var allValidPitches = nativePitchData.Where(p => p.HasPitch).ToList();
-        if (allValidPitches.Count > 0)
-        {
-            var confidenceStats = allValidPitches.Select(p => p.confidence);
-            DebugLog($"  Overall confidence: Min={confidenceStats.Min():F3}, " +
-                     $"Max={confidenceStats.Max():F3}, Avg={confidenceStats.Average():F3}");
+        if (!string.IsNullOrEmpty(speakerFilter) && 
+            !currentRecording.SpeakerName.Contains(speakerFilter, System.StringComparison.OrdinalIgnoreCase))
+            return false;
             
-            // Empfehlungen für gute Thresholds
-            var mediumConfidencePitches = allValidPitches.Where(p => p.confidence >= 0.3f).ToList();
-            var highConfidencePitches = allValidPitches.Where(p => p.confidence >= 0.5f).ToList();
-            var veryHighConfidencePitches = allValidPitches.Where(p => p.confidence >= 0.7f).ToList();
-            
-            DebugLog($"  THRESHOLD RECOMMENDATIONS:");
-            DebugLog($"    0.3: Keeps {mediumConfidencePitches.Count}/{allValidPitches.Count} " +
-                     $"({mediumConfidencePitches.Count * 100f / allValidPitches.Count:F1}%) - Good balance");
-            DebugLog($"    0.5: Keeps {highConfidencePitches.Count}/{allValidPitches.Count} " +
-                     $"({highConfidencePitches.Count * 100f / allValidPitches.Count:F1}%) - High quality");
-            DebugLog($"    0.7: Keeps {veryHighConfidencePitches.Count}/{allValidPitches.Count} " +
-                     $"({veryHighConfidencePitches.Count * 100f / allValidPitches.Count:F1}%) - Very high quality");
-            
-            // Intelligente Empfehlung basierend auf Datenqualität
-            if (mediumConfidencePitches.Count >= allValidPitches.Count * 0.8f)
-            {
-                DebugLog($"  RECOMMENDATION: Use threshold 0.3 (retains 80%+ of data with good quality)");
-            }
-            else if (highConfidencePitches.Count >= allValidPitches.Count * 0.6f)
-            {
-                DebugLog($"  RECOMMENDATION: Use threshold 0.5 (retains 60%+ of data with high quality)");
-            }
-            else
-            {
-                DebugLog($"  RECOMMENDATION: Use threshold 0.2 or lower (audio quality may be poor)");
-            }
-        }
-        
-        DebugLog("=== END PITCH RANGE ANALYSIS ===");
+        return true;
     }
 
     private void OnUserPitchDetected(PitchDataPoint pitchData)
@@ -399,10 +334,10 @@ public class ChorusingManager : MonoBehaviour
     }
 
     // Public Methods für UI
-    public void SetNativeRecording(AudioClip clip)
+    public void SetNativeRecording(NativeRecording recording)
     {
-        nativeClip = clip;
-        PreAnalyzeNativeRecording();
+        currentRecording = recording;
+        LoadNativeRecording();
     }
 
     public VisualizationSettings GetUserVisualizationSettings()
@@ -422,6 +357,7 @@ public class ChorusingManager : MonoBehaviour
     public List<PitchDataPoint> GetNativePitchData() => nativePitchData;
     public float GetQuantizedSilenceDuration() => quantizedSilenceDuration;
     public float GetInitialAudioDelay() => initialAudioDelay;
+    public NativeRecording GetCurrentRecording() => currentRecording; // NEW: Public getter
 
     // Debug Methods
     private void DebugLog(string message)
