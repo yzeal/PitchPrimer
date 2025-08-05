@@ -104,17 +104,6 @@ public partial class @UserRecordingInputActions: IInputActionCollection2, IDispo
             ""bindings"": [
                 {
                     ""name"": """",
-                    ""id"": ""7fb771d6-eb45-425e-87ed-7b1963d2cd65"",
-                    ""path"": ""<Mouse>/leftButton"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": """",
-                    ""action"": ""StartRecording"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
                     ""id"": ""3d7c3c5c-c428-447d-adfd-facad2bb5eb6"",
                     ""path"": ""<Keyboard>/space"",
                     ""interactions"": """",
