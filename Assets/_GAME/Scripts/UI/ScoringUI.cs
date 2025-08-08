@@ -84,6 +84,10 @@ public class ScoringUI : MonoBehaviour
     // Animation state
     private Coroutine scoreAnimationCoroutine;
     
+    // FIXED: Add state tracking for proper button management
+    private bool isLoadingActive = false;
+    private bool hasReceivedScoreOrError = false;
+    
     void Start()
     {
         InitializeComponents();
@@ -184,7 +188,7 @@ public class ScoringUI : MonoBehaviour
             scoringManager.OnUserClipPlaybackChanged += OnUserPlaybackChanged;
             scoringManager.OnScoringError += OnScoringError; // NEW: Subscribe to error events
             
-            DebugLog("? Subscribed to ScoringManager events");
+            DebugLog("?? Subscribed to ScoringManager events");
         }
         else
         {
@@ -196,7 +200,7 @@ public class ScoringUI : MonoBehaviour
             gameStateManager.OnStateEntered += OnGameStateEntered;
             gameStateManager.OnStateExited += OnGameStateExited;
             
-            DebugLog("? Subscribed to GameStateManager events");
+            DebugLog("?? Subscribed to GameStateManager events");
         }
     }
     
@@ -223,6 +227,10 @@ public class ScoringUI : MonoBehaviour
         UpdateNativePlayButton(false);
         UpdateUserPlayButton(false);
         
+        // FIXED: Reset state tracking
+        isLoadingActive = false;
+        hasReceivedScoreOrError = false;
+        
         DebugLog("?? UI state reset for new scoring session");
     }
     
@@ -232,6 +240,9 @@ public class ScoringUI : MonoBehaviour
         float overallScore = (pitchScore + rhythmScore) / 2f;
         
         DebugLog($"?? Scores received: Pitch={pitchScore:F1}, Rhythm={rhythmScore:F1}, Overall={overallScore:F1}");
+        
+        // FIXED: Mark that we received a result
+        hasReceivedScoreOrError = true;
         
         // NEW: Show score panel (hide error panel if it was showing)
         ShowScoreState();
@@ -251,14 +262,10 @@ public class ScoringUI : MonoBehaviour
         if (statusText != null)
             statusText.text = "Scoring complete!";
         
-        // FIXED: Enable UI controls after score calculation
-        SetAudioControlsEnabled(true);
+        // FIXED: End loading state and enable all controls
+        SetLoadingState(false);
         
-        if (againButton != null)
-            againButton.interactable = true;
-        
-        if (nextButton != null)
-            nextButton.interactable = true;
+        DebugLog("? Score display complete - all controls should be enabled");
     }
     
     private void OnClipsLoaded(AudioClip nativeClip, AudioClip userClip)
@@ -272,12 +279,11 @@ public class ScoringUI : MonoBehaviour
         if (userClipLabel != null && userClip != null)
             userClipLabel.text = $"Your Recording ({userClip.length:F1}s)";
         
-        // Enable audio controls
-        SetAudioControlsEnabled(true);
+        // Note: Don't enable audio controls here - wait for scores or error
         
         // Update status
         if (statusText != null)
-            statusText.text = "Audio loaded - Click play buttons to compare";
+            statusText.text = "Audio loaded - analyzing...";
     }
     
     private void OnNativePlaybackChanged(bool isPlaying)
@@ -302,21 +308,12 @@ public class ScoringUI : MonoBehaviour
         {
             DebugLog("?? Entering scoring state");
             
-            // FIXED: Initialize UI state for scoring
+            // Reset UI state for scoring
             ResetUIState();
             SetLoadingState(true);
             
             if (statusText != null)
                 statusText.text = "Analyzing your performance...";
-            
-            // FIXED: Ensure controls are initially disabled
-            SetAudioControlsEnabled(false);
-            
-            if (againButton != null)
-                againButton.interactable = false;
-            
-            if (nextButton != null)
-                nextButton.interactable = false;
         }
     }
     
@@ -334,6 +331,9 @@ public class ScoringUI : MonoBehaviour
     {
         DebugLog($"? Scoring error received: {errorMessage}");
         
+        // FIXED: Mark that we received a result
+        hasReceivedScoreOrError = true;
+        
         // Show error panel and hide score panel
         ShowErrorState(errorMessage);
         
@@ -341,15 +341,11 @@ public class ScoringUI : MonoBehaviour
         if (statusText != null)
             statusText.text = "Analysis failed - see error message";
         
-        // Disable audio controls since we don't have valid data
+        // FIXED: End loading state but keep audio controls disabled (no valid data)
+        SetLoadingState(false);
         SetAudioControlsEnabled(false);
         
-        // Keep navigation buttons enabled for retry
-        if (againButton != null)
-            againButton.interactable = true;
-        
-        if (nextButton != null)
-            nextButton.interactable = true;
+        DebugLog("? Error state displayed with navigation buttons enabled");
     }
     
     // NEW: Show error state instead of scores
@@ -367,10 +363,7 @@ public class ScoringUI : MonoBehaviour
         if (errorMessageText != null)
             errorMessageText.text = errorMessage;
         
-        // Stop loading state
-        SetLoadingState(false);
-        
-        DebugLog($"?? Error state displayed: {errorMessage}");
+        DebugLog($"? Error state displayed: {errorMessage}");
     }
     
     // NEW: Show score state (normal successful scoring)
@@ -602,25 +595,65 @@ public class ScoringUI : MonoBehaviour
         if (userStopButton != null)
             userStopButton.interactable = enabled;
         
-        DebugLog($"??? Audio controls: {(enabled ? "Enabled" : "Disabled")}");
+        DebugLog($"?? Audio controls: {(enabled ? "Enabled" : "Disabled")}");
     }
     
+    // FIXED: Improved loading state management
     private void SetLoadingState(bool isLoading)
     {
+        isLoadingActive = isLoading;
+        
+        // Show/hide loading indicators
         if (loadingIndicator != null)
             loadingIndicator.SetActive(isLoading);
         
         if (progressSlider != null)
             progressSlider.gameObject.SetActive(isLoading);
         
-        // Disable controls during loading
-        SetAudioControlsEnabled(!isLoading);
-        
+        if (isLoading)
+        {
+            // Disable all controls during loading
+            SetAudioControlsEnabled(false);
+            SetNavigationButtonsEnabled(false);
+            
+            DebugLog("? Loading state: ACTIVE - all controls disabled");
+        }
+        else
+        {
+            // Only enable controls if we have received a result
+            if (hasReceivedScoreOrError)
+            {
+                SetNavigationButtonsEnabled(true);
+                
+                // Only enable audio controls for successful scoring (not errors)
+                if (scorePanel != null && scorePanel.activeInHierarchy)
+                {
+                    SetAudioControlsEnabled(true);
+                }
+                
+                DebugLog("? Loading state: INACTIVE - controls enabled based on result type");
+            }
+            else
+            {
+                DebugLog("? Loading state: INACTIVE but waiting for results");
+            }
+        }
+    }
+    
+    // FIXED: Separate navigation button control
+    private void SetNavigationButtonsEnabled(bool enabled)
+    {
         if (againButton != null)
-            againButton.interactable = !isLoading;
+        {
+            againButton.interactable = enabled;
+            DebugLog($"?? Again button: {(enabled ? "Enabled" : "Disabled")}");
+        }
         
         if (nextButton != null)
-            nextButton.interactable = !isLoading;
+        {
+            nextButton.interactable = enabled;
+            DebugLog($"?? Next button: {(enabled ? "Enabled" : "Disabled")}");
+        }
     }
     
     // Public API for external control
