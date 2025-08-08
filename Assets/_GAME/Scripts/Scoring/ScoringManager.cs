@@ -61,7 +61,7 @@ public class ScoringManager : MonoBehaviour
     private bool isUserClipPlaying = false;
     
     [Header("Validation Settings")]
-    [SerializeField] private float minimumRecordingRatio = 0.3f; // User recording must be at least 30% of native length
+    [SerializeField] private float minimumRecordingRatio = 0.75f; // UPDATED: User recording must be at least 75% of native length (was 30%)
     [SerializeField] private float minimumAbsoluteLength = 1.0f; // At least 1 second
     
     void Start()
@@ -177,11 +177,12 @@ public class ScoringManager : MonoBehaviour
             yield break; // Error message already sent
         }
         
-        // Step 4: Validate recording length
+        // Step 4: Validate recording length - THIS is where short recordings are filtered out
         if (!ValidateRecordingLength())
         {
-            // Error message already sent via OnScoringError event
-            yield break; // Don't continue with scoring
+            // ?? SMOOTH UX: Short recordings simply don't trigger scoring - user stays in chorusing
+            DebugLog("?? Recording too short for scoring - staying in chorusing mode for smooth UX");
+            yield break; // Don't continue with scoring, no error shown
         }
         
         // ? ONLY HERE: OnScoringComplete after all validations passed!
@@ -385,11 +386,13 @@ public class ScoringManager : MonoBehaviour
         return true;
     }
     
+    // ?? UPDATED: Higher minimum recording ratio for better UX
     private bool ValidateRecordingLength()
     {
         if (userRecordingClip == null || nativePitchData == null)
         {
             DebugLog("?? Cannot validate length - missing clip or native data");
+            // For internal errors, show error message
             OnScoringError?.Invoke("Internal error: Missing recording data. Please try again.");
             return false;
         }
@@ -403,20 +406,20 @@ public class ScoringManager : MonoBehaviour
         // Check minimum absolute length
         if (userDuration < minimumAbsoluteLength)
         {
-            DebugLog($"? Recording too short: {userDuration:F1}s < {minimumAbsoluteLength:F1}s minimum");
-            OnScoringError?.Invoke($"Recording too short ({userDuration:F1}s). Please record for at least {minimumAbsoluteLength:F1}s.");
+            DebugLog($"?? Recording below minimum absolute length: {userDuration:F1}s < {minimumAbsoluteLength:F1}s - staying in chorusing");
+            // No error message - smooth UX
             return false;
         }
         
-        // Check relative length compared to native
+        // Check relative length compared to native (now 75% instead of 30%)
         if (durationRatio < minimumRecordingRatio)
         {
-            DebugLog($"? Recording too short relative to native: {durationRatio:F1}% < {minimumRecordingRatio * 100:F0}% required");
-            OnScoringError?.Invoke($"Recording too short. Please record for at least {minimumRecordingRatio * 100:F0}% of the native duration ({nativeDuration * minimumRecordingRatio:F1}s).");
+            DebugLog($"?? Recording below minimum ratio: {durationRatio * 100:F0}% < {minimumRecordingRatio * 100:F0}% required - staying in chorusing");
+            // No error message - smooth UX for better user experience
             return false;
         }
         
-        DebugLog("? Recording length validation passed");
+        DebugLog($"? Recording length validation passed: {durationRatio * 100:F0}% of native duration");
         return true;
     }
     

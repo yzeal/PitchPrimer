@@ -10790,7 +10790,7 @@ MonoBehaviour:
     normalizeByVoiceRange: 1
   useNormalizedScoring: 1
   enableDebugLogging: 1
-  minimumRecordingRatio: 0.3
+  minimumRecordingRatio: 0.75
   minimumAbsoluteLength: 1
 --- !u!4 &2050263523
 Transform:
