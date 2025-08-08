@@ -107,7 +107,7 @@ public class ScoringManager : MonoBehaviour
         if (userRecorder != null)
         {
             userRecorder.OnRecordingSaved += OnUserRecordingSaved;
-            DebugLog("? Subscribed to UserAudioRecorder.OnRecordingSaved");
+            DebugLog("?? Subscribed to UserAudioRecorder.OnRecordingSaved");
         }
         else
         {
@@ -132,7 +132,7 @@ public class ScoringManager : MonoBehaviour
     
     private void OnUserRecordingSaved(string recordingFilePath)
     {
-        DebugLog($"??? User recording saved: {recordingFilePath}");
+        DebugLog($"?? User recording saved: {recordingFilePath}");
         StartCoroutine(StartScoringProcess(recordingFilePath));
     }
     
@@ -156,6 +156,12 @@ public class ScoringManager : MonoBehaviour
             yield break;
         }
         
+        // ADDED: Enhanced audio clip validation
+        if (!ValidateAudioClip(userRecordingClip))
+        {
+            yield break; // Error message already sent
+        }
+        
         // Step 2: Get native clip data from ChorusingManager
         if (!GetNativeClipData())
         {
@@ -167,7 +173,13 @@ public class ScoringManager : MonoBehaviour
         // Step 3: Analyze user recording
         AnalyzeUserRecording();
         
-        // NEW: Step 4: Validate recording length
+        // ADDED: Enhanced analysis validation
+        if (!ValidateAnalysisResults())
+        {
+            yield break; // Error message already sent
+        }
+        
+        // Step 4: Validate recording length
         if (!ValidateRecordingLength())
         {
             // Error message already sent via OnScoringError event
@@ -183,7 +195,7 @@ public class ScoringManager : MonoBehaviour
         // Step 7: Set scoring as active (moved to end)
         isScoringActive = true;
         
-        DebugLog("? Scoring process complete!");
+        DebugLog("?? Scoring process complete!");
     }
     
     private IEnumerator LoadUserRecording(string filePath)
@@ -193,6 +205,18 @@ public class ScoringManager : MonoBehaviour
         if (!File.Exists(filePath))
         {
             Debug.LogError($"[ScoringManager] User recording file not found: {filePath}");
+            OnScoringError?.Invoke("Recording file not found. Please try recording again.");
+            yield break;
+        }
+        
+        // Check file size
+        var fileInfo = new FileInfo(filePath);
+        DebugLog($"?? File size: {fileInfo.Length} bytes ({fileInfo.Length / 1024f:F1} KB)");
+        
+        if (fileInfo.Length < 1000) // Less than 1KB is suspicious
+        {
+            DebugLog($"?? Very small file size: {fileInfo.Length} bytes - possible empty recording");
+            OnScoringError?.Invoke("Recording appears to be empty. Please check your microphone and try again.");
             yield break;
         }
         
@@ -207,13 +231,63 @@ public class ScoringManager : MonoBehaviour
                 userRecordingClip = UnityEngine.Networking.DownloadHandlerAudioClip.GetContent(www);
                 userRecordingClip.name = "UserRecording";
                 
-                DebugLog($"? User recording loaded: {userRecordingClip.length:F1}s, {userRecordingClip.samples} samples");
+                DebugLog($"? User recording loaded: {userRecordingClip.length:F1}s, {userRecordingClip.samples} samples, {userRecordingClip.channels} channels");
             }
             else
             {
                 Debug.LogError($"[ScoringManager] Failed to load user recording: {www.error}");
+                OnScoringError?.Invoke("Failed to load recording file. Please try again.");
             }
         }
+    }
+    
+    // ADDED: Enhanced audio clip validation
+    private bool ValidateAudioClip(AudioClip clip)
+    {
+        if (clip == null)
+        {
+            DebugLog("? Audio clip is null");
+            OnScoringError?.Invoke("Failed to load audio data. Please try recording again.");
+            return false;
+        }
+        
+        if (clip.length <= 0f)
+        {
+            DebugLog($"? Audio clip has no duration: {clip.length}s");
+            OnScoringError?.Invoke("Recording has no duration. Please try recording again.");
+            return false;
+        }
+        
+        if (clip.samples <= 0)
+        {
+            DebugLog($"? Audio clip has no samples: {clip.samples}");
+            OnScoringError?.Invoke("Recording contains no audio data. Please check your microphone and try again.");
+            return false;
+        }
+        
+        // Check if audio data contains actual sound
+        float[] audioData = new float[clip.samples * clip.channels];
+        clip.GetData(audioData, 0);
+        
+        // Calculate RMS (Root Mean Square) to check for actual audio content
+        float sumSquares = 0f;
+        for (int i = 0; i < audioData.Length; i++)
+        {
+            sumSquares += audioData[i] * audioData[i];
+        }
+        float rms = Mathf.Sqrt(sumSquares / audioData.Length);
+        
+        DebugLog($"?? Audio analysis: Length={clip.length:F1}s, Samples={clip.samples}, RMS={rms:F6}");
+        
+        if (rms < 0.001f) // Very quiet threshold
+        {
+            DebugLog($"? Audio appears to be silent (RMS: {rms:F6})");
+            OnScoringError?.Invoke("Recording appears to be silent. Please check your microphone volume and try again.");
+            return false;
+        }
+        
+        DebugLog($"? Audio clip validation passed: Duration={clip.length:F1}s, RMS={rms:F6}");
+        return true;
     }
     
     private bool GetNativeClipData()
@@ -249,13 +323,69 @@ public class ScoringManager : MonoBehaviour
         
         var stats = PitchAnalyzer.CalculateStatistics(userPitchData);
         DebugLog($"?? User recording analysis: {stats}");
+        
+        // ADDED: Detailed analysis logging
+        if (userPitchData != null)
+        {
+            int pitchPointsWithData = userPitchData.Count(p => p.HasPitch);
+            float pitchDataPercentage = userPitchData.Count > 0 ? (float)pitchPointsWithData / userPitchData.Count * 100f : 0f;
+            
+            DebugLog($"?? Analysis details: Total points={userPitchData.Count}, " +
+                    $"With pitch={pitchPointsWithData}, Percentage={pitchDataPercentage:F1}%");
+        }
+        else
+        {
+            DebugLog("? Analysis returned null pitch data");
+        }
+    }
+    
+    // ADDED: Validate analysis results
+    private bool ValidateAnalysisResults()
+    {
+        if (userPitchData == null)
+        {
+            DebugLog("? Pitch analysis returned null data");
+            OnScoringError?.Invoke("Failed to analyze recording. Please try again.");
+            return false;
+        }
+        
+        if (userPitchData.Count == 0)
+        {
+            DebugLog("? Pitch analysis returned empty data");
+            OnScoringError?.Invoke("No audio data found in recording. Please check your microphone and try again.");
+            return false;
+        }
+        
+        // Check if we have any actual pitch data
+        int pitchPointsWithData = userPitchData.Count(p => p.HasPitch);
+        float pitchDataPercentage = (float)pitchPointsWithData / userPitchData.Count * 100f;
+        
+        DebugLog($"?? Pitch data analysis: {pitchPointsWithData}/{userPitchData.Count} points have pitch data ({pitchDataPercentage:F1}%)");
+        
+        if (pitchPointsWithData == 0)
+        {
+            DebugLog("? No pitch data found in any analysis points");
+            OnScoringError?.Invoke("No speech detected in recording. Please speak clearly and try again.");
+            return false;
+        }
+        
+        if (pitchDataPercentage < 5f) // Less than 5% contains speech
+        {
+            DebugLog($"? Very little speech detected: {pitchDataPercentage:F1}%");
+            OnScoringError?.Invoke($"Very little speech detected ({pitchDataPercentage:F0}%). Please speak more clearly and try again.");
+            return false;
+        }
+        
+        DebugLog($"? Analysis validation passed: {pitchDataPercentage:F1}% of recording contains speech");
+        return true;
     }
     
     private bool ValidateRecordingLength()
     {
         if (userRecordingClip == null || nativePitchData == null)
         {
-            DebugLog("?? Cannot validate - missing clip or native data");
+            DebugLog("?? Cannot validate length - missing clip or native data");
+            OnScoringError?.Invoke("Internal error: Missing recording data. Please try again.");
             return false;
         }
         
@@ -292,6 +422,7 @@ public class ScoringManager : MonoBehaviour
         if (nativePitchData == null || userPitchData == null)
         {
             Debug.LogError("[ScoringManager] Missing pitch data for scoring!");
+            OnScoringError?.Invoke("Internal error: Missing analysis data. Please try again.");
             return;
         }
         
@@ -758,7 +889,7 @@ public class ScoringManager : MonoBehaviour
     public void SetNormalizedScoring(bool enabled)
     {
         useNormalizedScoring = enabled;
-        DebugLog($"?? Normalized scoring: {(enabled ? "Enabled" : "Disabled")}");
+        DebugLog($"??? Normalized scoring: {(enabled ? "Enabled" : "Disabled")}");
     }
     
     private void DebugLog(string message)

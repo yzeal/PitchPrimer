@@ -1408,7 +1408,7 @@ MonoBehaviour:
   autoStartChorusing: 1
   transitionDelay: 0.1
   enableSmoothTransitions: 1
-  enableDebugLogging: 1
+  enableDebugLogging: 0
 --- !u!4 &271695783
 Transform:
   m_ObjectHideFlags: 0
@@ -2461,7 +2461,7 @@ MonoBehaviour:
       personalMaxPitch: 300
       minCubeHeight: 0
       maxCubeHeight: 10
-      outOfRangeMode: 0
+      outOfRangeMode: 2
       outOfRangeColor: {r: 1, g: 0, b: 0, a: 1}
       showRangeDebug: 0
     playedBrightness: 1
@@ -3122,7 +3122,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   userRecorder: {fileID: 1126997250}
   playbackAudioSource: {fileID: 0}
-  enableDebugLogging: 1
+  enableDebugLogging: 0
 --- !u!82 &660340955
 AudioSource:
   m_ObjectHideFlags: 0
@@ -5262,12 +5262,12 @@ MonoBehaviour:
     bufferLength: 4096
     historySize: 10
     useSmoothing: 1
-    enableDebugLogging: 1
+    enableDebugLogging: 0
   analysisInterval: 0.05
   initialAudioDelay: 0.5
   requestedSilenceDuration: 0.6
   quantizedSilenceDuration: 0
-  enableDebugLogging: 1
+  enableDebugLogging: 0
   inputManager: {fileID: 1668862832}
   enableUserRecordingControl: 1
 --- !u!114 &1126997250
@@ -5291,7 +5291,7 @@ MonoBehaviour:
   gameStateManager: {fileID: 0}
   recordingDuration: 5
   autoCalculateDuration: 1
-  enableDebugLogging: 1
+  enableDebugLogging: 0
 --- !u!1 &1127631722
 GameObject:
   m_ObjectHideFlags: 0
@@ -7381,7 +7381,7 @@ MonoBehaviour:
   minAcceptablePitch: 60
   maxAcceptablePitch: 600
   debugPitchFilter: 0
-  enableDebugLogging: 1
+  enableDebugLogging: 0
   debugNoiseGate: 0
 --- !u!82 &1512065943
 AudioSource:
@@ -8529,8 +8529,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d6d2976cdecb63f4eb108f67233d7154, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  enableDebugLogging: 1
-  showInputStatus: 1
+  enableDebugLogging: 0
+  showInputStatus: 0
 --- !u!4 &1668862833
 Transform:
   m_ObjectHideFlags: 0
@@ -10788,7 +10788,7 @@ MonoBehaviour:
     minimumSegmentDuration: 0.1
     useDynamicTimeWarping: 0
     normalizeByVoiceRange: 1
-  useNormalizedScoring: 0
+  useNormalizedScoring: 1
   enableDebugLogging: 1
   minimumRecordingRatio: 0.3
   minimumAbsoluteLength: 1
