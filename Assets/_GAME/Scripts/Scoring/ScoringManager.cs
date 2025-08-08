@@ -136,15 +136,13 @@ public class ScoringManager : MonoBehaviour
         StartCoroutine(StartScoringProcess(recordingFilePath));
     }
     
+    // ?? CRITICAL FIX: Clean Event Semantics - OnScoringComplete only after validation
     private IEnumerator StartScoringProcess(string userRecordingPath)
     {
         DebugLog("?? Starting scoring process...");
         
-        // FIXED: Notify GameStateManager FIRST, then wait for canvas to be active
-        OnScoringComplete?.Invoke(); // This triggers canvas activation
-        
-        // Wait for canvas to be activated
-        yield return new WaitForSeconds(0.2f);
+        // ? REMOVED: OnScoringComplete?.Invoke(); // This triggers canvas activation
+        // ? REMOVED: yield return new WaitForSeconds(0.2f);
         
         // Step 1: Load user recording as AudioClip
         yield return StartCoroutine(LoadUserRecording(userRecordingPath));
@@ -185,6 +183,13 @@ public class ScoringManager : MonoBehaviour
             // Error message already sent via OnScoringError event
             yield break; // Don't continue with scoring
         }
+        
+        // ? ONLY HERE: OnScoringComplete after all validations passed!
+        DebugLog("? All validations passed - starting successful scoring");
+        OnScoringComplete?.Invoke(); // This triggers canvas activation
+        
+        // Wait for canvas to be activated
+        yield return new WaitForSeconds(0.2f);
         
         // Step 5: Calculate scores (only if validation passed)
         CalculateScores();

@@ -302,13 +302,26 @@ public class ScoringUI : MonoBehaviour
         DebugLog($"?? User playback: {(isPlaying ? "Started" : "Stopped")}");
     }
     
+    // ??? TARGETED FIX: Comprehensive defensive check to prevent race condition
     private void OnGameStateEntered(GameState state)
     {
         if (state == GameState.Scoring)
         {
             DebugLog("?? Entering scoring state");
             
-            // Reset UI state for scoring
+            // ? COMPREHENSIVE DEFENSIVE CHECK: Don't reset if we already have results
+            if (hasReceivedScoreOrError)
+            {
+                DebugLog("?? Results already received - preserving current state (race condition protection)");
+                // Ensure loading indicators are hidden since we have results
+                if (loadingIndicator != null)
+                    loadingIndicator.SetActive(false);
+                if (progressSlider != null)
+                    progressSlider.gameObject.SetActive(false);
+                return; // Exit early - don't reset UI
+            }
+            
+            // ? Only reset UI if no results have been received yet
             ResetUIState();
             SetLoadingState(true);
             
