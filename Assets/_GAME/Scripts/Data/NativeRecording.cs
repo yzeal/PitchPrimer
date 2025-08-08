@@ -20,6 +20,12 @@ public class NativeRecording : ScriptableObject
     [SerializeField] [TextArea(2, 4)] private string kanaText;
     [SerializeField] [TextArea(2, 4)] private string romajiText;
     
+    [Header("Language Learning Content")]
+    [SerializeField] [TextArea(2, 4)] private string englishTranslation;
+    [Tooltip("Closest English translation of the Japanese word/sentence")]
+    [SerializeField] [TextArea(3, 6)] private string usageDescription;
+    [Tooltip("Context and usage information for learners - especially useful for expressions without direct translations")]
+    
     [Header("Speaker Metadata")]
     [SerializeField] private string speakerName;
     [SerializeField] private NativeRecordingGender speakerGender = NativeRecordingGender.NotSpecified;
@@ -50,6 +56,8 @@ public class NativeRecording : ScriptableObject
     public string KanjiText => kanjiText;
     public string KanaText => kanaText;
     public string RomajiText => romajiText;
+    public string EnglishTranslation => englishTranslation;
+    public string UsageDescription => usageDescription;
     public string SpeakerName => speakerName;
     public NativeRecordingGender SpeakerGender => speakerGender;
     public string SpeakerNotes => speakerNotes;
@@ -312,6 +320,35 @@ public class NativeRecording : ScriptableObject
         };
         
         return $"{speakerName} ({genderText})";
+    }
+    
+    /// <summary>
+    /// Gets formatted learning content for display
+    /// </summary>
+    public string GetLearningContent()
+    {
+        var content = "";
+        
+        if (!string.IsNullOrEmpty(englishTranslation))
+        {
+            content += $"Translation: {englishTranslation}";
+        }
+        
+        if (!string.IsNullOrEmpty(usageDescription))
+        {
+            if (!string.IsNullOrEmpty(content)) content += "\n\n";
+            content += $"Usage: {usageDescription}";
+        }
+        
+        return content;
+    }
+    
+    /// <summary>
+    /// Checks if learning content is available
+    /// </summary>
+    public bool HasLearningContent()
+    {
+        return !string.IsNullOrEmpty(englishTranslation) || !string.IsNullOrEmpty(usageDescription);
     }
     
     // Editor validation
