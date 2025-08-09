@@ -3,12 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using JapanesePitchTrainer.Scoring.Advanced;
 
 // COPILOT CONTEXT: Core scoring system for Japanese pitch accent trainer
 // Handles user recording analysis, comparison with native clips, and score calculation
 // Integrates with existing ChorusingManager and UserAudioRecorder via events
-// NEW: Advanced DTW and Energy-based scoring algorithms
+// NEW: Normalized scoring using UserVoiceSettings and NativeRecording pitch ranges
 
 public class ScoringManager : MonoBehaviour
 {
@@ -34,9 +33,7 @@ public class ScoringManager : MonoBehaviour
     
     [Header("Scoring Configuration")]
     [SerializeField] private ScoringSettings scoringSettings;
-    
-    [Header("Advanced Scoring Settings")]
-    [SerializeField] private AdvancedScoringAlgorithms.AdvancedScoringSettings advancedSettings;
+    [SerializeField] private bool useNormalizedScoring = true; // NEW: Enable/disable normalization
     
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogging = true;
@@ -64,13 +61,12 @@ public class ScoringManager : MonoBehaviour
     private bool isUserClipPlaying = false;
     
     [Header("Validation Settings")]
-    [SerializeField] private float minimumRecordingRatio = 0.75f;
-    [SerializeField] private float minimumAbsoluteLength = 1.0f;
+    [SerializeField] private float minimumRecordingRatio = 0.75f; // UPDATED: User recording must be at least 75% of native length (was 30%)
+    [SerializeField] private float minimumAbsoluteLength = 1.0f; // At least 1 second
     
     void Start()
     {
         InitializeComponents();
-        InitializeAdvancedSettings();
     }
     
     void Update()
@@ -78,16 +74,6 @@ public class ScoringManager : MonoBehaviour
         if (isScoringActive)
         {
             UpdatePlaybackStates();
-        }
-    }
-    
-    private void InitializeAdvancedSettings()
-    {
-        // Initialize advanced scoring settings if not set
-        if (advancedSettings.Equals(default(AdvancedScoringAlgorithms.AdvancedScoringSettings)))
-        {
-            advancedSettings = AdvancedScoringAlgorithms.AdvancedScoringSettings.Default;
-            DebugLog("?? Initialized default advanced scoring settings");
         }
     }
     
@@ -150,9 +136,13 @@ public class ScoringManager : MonoBehaviour
         StartCoroutine(StartScoringProcess(recordingFilePath));
     }
     
+    // ?? CRITICAL FIX: Clean Event Semantics - OnScoringComplete only after validation
     private IEnumerator StartScoringProcess(string userRecordingPath)
     {
         DebugLog("?? Starting scoring process...");
+        
+        // ? REMOVED: OnScoringComplete?.Invoke(); // This triggers canvas activation
+        // ? REMOVED: yield return new WaitForSeconds(0.2f);
         
         // Step 1: Load user recording as AudioClip
         yield return StartCoroutine(LoadUserRecording(userRecordingPath));
@@ -164,13 +154,13 @@ public class ScoringManager : MonoBehaviour
             yield break;
         }
         
-        // Step 2: Enhanced audio clip validation
+        // ADDED: Enhanced audio clip validation
         if (!ValidateAudioClip(userRecordingClip))
         {
             yield break; // Error message already sent
         }
         
-        // Step 3: Get native clip data from ChorusingManager
+        // Step 2: Get native clip data from ChorusingManager
         if (!GetNativeClipData())
         {
             Debug.LogError("[ScoringManager] Failed to get native clip data!");
@@ -178,36 +168,37 @@ public class ScoringManager : MonoBehaviour
             yield break;
         }
         
-        // Step 4: Analyze user recording
+        // Step 3: Analyze user recording
         AnalyzeUserRecording();
         
-        // Step 5: Enhanced analysis validation
+        // ADDED: Enhanced analysis validation
         if (!ValidateAnalysisResults())
         {
             yield break; // Error message already sent
         }
         
-        // Step 6: Validate recording length
+        // Step 4: Validate recording length - THIS is where short recordings are filtered out
         if (!ValidateRecordingLength())
         {
+            // ?? SMOOTH UX: Short recordings simply don't trigger scoring - user stays in chorusing
             DebugLog("?? Recording too short for scoring - staying in chorusing mode for smooth UX");
             yield break; // Don't continue with scoring, no error shown
         }
         
-        // Step 7: ONLY HERE: OnScoringComplete after all validations passed!
+        // ? ONLY HERE: OnScoringComplete after all validations passed!
         DebugLog("? All validations passed - starting successful scoring");
         OnScoringComplete?.Invoke(); // This triggers canvas activation
         
         // Wait for canvas to be activated
         yield return new WaitForSeconds(0.2f);
         
-        // Step 8: Calculate scores (only if validation passed)
+        // Step 5: Calculate scores (only if validation passed)
         CalculateScores();
         
-        // Step 9: Setup visualizations
+        // Step 6: Setup visualizations
         SetupVisualizations();
         
-        // Step 10: Set scoring as active (moved to end)
+        // Step 7: Set scoring as active (moved to end)
         isScoringActive = true;
         
         DebugLog("?? Scoring process complete!");
@@ -256,6 +247,7 @@ public class ScoringManager : MonoBehaviour
         }
     }
     
+    // ADDED: Enhanced audio clip validation
     private bool ValidateAudioClip(AudioClip clip)
     {
         if (clip == null)
@@ -338,6 +330,7 @@ public class ScoringManager : MonoBehaviour
         var stats = PitchAnalyzer.CalculateStatistics(userPitchData);
         DebugLog($"?? User recording analysis: {stats}");
         
+        // ADDED: Detailed analysis logging
         if (userPitchData != null)
         {
             int pitchPointsWithData = userPitchData.Count(p => p.HasPitch);
@@ -352,6 +345,7 @@ public class ScoringManager : MonoBehaviour
         }
     }
     
+    // ADDED: Validate analysis results
     private bool ValidateAnalysisResults()
     {
         if (userPitchData == null)
@@ -392,11 +386,13 @@ public class ScoringManager : MonoBehaviour
         return true;
     }
     
+    // ?? UPDATED: Higher minimum recording ratio for better UX
     private bool ValidateRecordingLength()
     {
         if (userRecordingClip == null || nativePitchData == null)
         {
             DebugLog("?? Cannot validate length - missing clip or native data");
+            // For internal errors, show error message
             OnScoringError?.Invoke("Internal error: Missing recording data. Please try again.");
             return false;
         }
@@ -411,13 +407,15 @@ public class ScoringManager : MonoBehaviour
         if (userDuration < minimumAbsoluteLength)
         {
             DebugLog($"?? Recording below minimum absolute length: {userDuration:F1}s < {minimumAbsoluteLength:F1}s - staying in chorusing");
+            // No error message - smooth UX
             return false;
         }
         
-        // Check relative length compared to native
+        // Check relative length compared to native (now 75% instead of 30%)
         if (durationRatio < minimumRecordingRatio)
         {
             DebugLog($"?? Recording below minimum ratio: {durationRatio * 100:F0}% < {minimumRecordingRatio * 100:F0}% required - staying in chorusing");
+            // No error message - smooth UX for better user experience
             return false;
         }
         
@@ -427,7 +425,7 @@ public class ScoringManager : MonoBehaviour
     
     private void CalculateScores()
     {
-        DebugLog("?? Calculating advanced scores...");
+        DebugLog("?? Calculating scores...");
         
         if (nativePitchData == null || userPitchData == null)
         {
@@ -436,7 +434,6 @@ public class ScoringManager : MonoBehaviour
             return;
         }
         
-        // Use advanced scoring algorithms
         float pitchScore = CalculatePitchScore(nativePitchData, userPitchData);
         float rhythmScore = CalculateRhythmScore(nativePitchData, userPitchData);
         
@@ -455,44 +452,301 @@ public class ScoringManager : MonoBehaviour
         OnScoresCalculated?.Invoke(pitchScore, rhythmScore);
     }
     
-    // NEW: Enhanced pitch scoring with DTW analysis - ONLY VERSION
+    // NEW: Enhanced pitch scoring with normalization support
     private float CalculatePitchScore(List<PitchDataPoint> native, List<PitchDataPoint> user)
     {
-        DebugLog("?? Calculating DTW-based pitch score...");
+        var nativePitches = native.Where(p => p.HasPitch).Select(p => p.frequency).ToList();
+        var userPitches = user.Where(p => p.HasPitch).Select(p => p.frequency).ToList();
         
-        try
+        if (nativePitches.Count == 0 || userPitches.Count == 0)
         {
-            // Use advanced DTW algorithm
-            float score = AdvancedScoringAlgorithms.CalculateDTWPitchScore(native, user, advancedSettings);
-            
-            DebugLog($"?? DTW Pitch score: {score:F1}%");
-            return score;
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[ScoringManager] Error in DTW pitch scoring: {e.Message}");
+            DebugLog("?? No pitch data available for comparison");
             return 0f;
         }
+        
+        float correlation;
+        
+        if (useNormalizedScoring)
+        {
+            correlation = CalculateNormalizedPitchScore(nativePitches, userPitches);
+        }
+        else
+        {
+            // Fallback to old method
+            correlation = CalculateCorrelation(nativePitches, userPitches);
+        }
+        
+        // Convert correlation to 0-100 score
+        float score = Mathf.Clamp01(correlation) * 100f;
+        
+        DebugLog($"?? Pitch scoring: {nativePitches.Count} vs {userPitches.Count} points, " +
+                $"correlation={correlation:F3}, score={score:F1} (normalized: {useNormalizedScoring})");
+        
+        return score;
     }
     
-    // NEW: Enhanced rhythm scoring with energy-based segmentation - ONLY VERSION
+    // NEW: Normalized pitch scoring using calibration data
+    private float CalculateNormalizedPitchScore(List<float> nativePitches, List<float> userPitches)
+    {
+        // Get native recording pitch range
+        var nativeRecording = chorusingManager.GetCurrentRecording();
+        if (nativeRecording == null)
+        {
+            DebugLog("?? No native recording available, falling back to direct correlation");
+            return CalculateCorrelation(nativePitches, userPitches);
+        }
+        
+        // Get user calibration data
+        var userVoiceSettings = SettingsManager.Instance?.UserVoice;
+        if (userVoiceSettings == null || !userVoiceSettings.IsCalibrated)
+        {
+            DebugLog("?? User not calibrated, falling back to direct correlation");
+            return CalculateCorrelation(nativePitches, userPitches);
+        }
+        
+        // Get pitch ranges
+        float nativeMin = nativeRecording.PitchRangeMin;
+        float nativeMax = nativeRecording.PitchRangeMax;
+        float userMin = userVoiceSettings.GetEffectiveMinPitch();
+        float userMax = userVoiceSettings.GetEffectiveMaxPitch();
+        
+        DebugLog($"?? Normalizing pitch data:");
+        DebugLog($"   Native range: {nativeMin:F1}Hz - {nativeMax:F1}Hz");
+        DebugLog($"   User range: {userMin:F1}Hz - {userMax:F1}Hz");
+        
+        // Normalize both datasets to 0-1 range
+        var normalizedNative = NormalizePitches(nativePitches, nativeMin, nativeMax);
+        var normalizedUser = NormalizePitches(userPitches, userMin, userMax);
+        
+        // Calculate correlation on normalized data
+        float correlation = CalculateCorrelation(normalizedNative, normalizedUser);
+        
+        DebugLog($"?? Normalized correlation: {correlation:F3}");
+        
+        // NEW: Additional scoring factors for better accuracy
+        float rangeMatchScore = CalculateRangeMatchScore(nativePitches, userPitches, nativeMin, nativeMax, userMin, userMax);
+        float contourScore = CalculateContourScore(normalizedNative, normalizedUser);
+        
+        // Weighted combination of different scoring factors
+        float finalScore = (correlation * 0.5f) + (rangeMatchScore * 0.3f) + (contourScore * 0.2f);
+        
+        DebugLog($"?? Scoring breakdown: Correlation={correlation:F3}, Range={rangeMatchScore:F3}, " +
+                $"Contour={contourScore:F3}, Final={finalScore:F3}");
+        
+        return finalScore;
+    }
+    
+    // NEW: Normalize pitch values to 0-1 range
+    private List<float> NormalizePitches(List<float> pitches, float minPitch, float maxPitch)
+    {
+        if (maxPitch <= minPitch || pitches.Count == 0) 
+        {
+            DebugLog($"?? Invalid pitch range: {minPitch:F1}Hz - {maxPitch:F1}Hz, returning original data");
+            return pitches; // Avoid division by zero
+        }
+        
+        var normalized = pitches.Select(p => Mathf.Clamp01((p - minPitch) / (maxPitch - minPitch))).ToList();
+        
+        DebugLog($"?? Normalized {pitches.Count} pitches from [{minPitch:F1}Hz-{maxPitch:F1}Hz] to [0-1]");
+        
+        return normalized;
+    }
+    
+    // NEW: Calculate how well user's pitch range usage matches native speaker
+    private float CalculateRangeMatchScore(List<float> nativePitches, List<float> userPitches, 
+                                          float nativeMin, float nativeMax, float userMin, float userMax)
+    {
+        // Calculate actual range usage
+        float nativeUsedMin = nativePitches.Min();
+        float nativeUsedMax = nativePitches.Max();
+        float userUsedMin = userPitches.Min();
+        float userUsedMax = userPitches.Max();
+        
+        // Normalize to their respective ranges
+        float nativeUsedRangeNorm = (nativeUsedMax - nativeUsedMin) / (nativeMax - nativeMin);
+        float userUsedRangeNorm = (userUsedMax - userUsedMin) / (userMax - userMin);
+        
+        // Score based on how similarly they use their available range
+        float rangeSimilarity = 1f - Mathf.Abs(nativeUsedRangeNorm - userUsedRangeNorm);
+        
+        DebugLog($"?? Range usage: Native={nativeUsedRangeNorm:F3}, User={userUsedRangeNorm:F3}, " +
+                $"Similarity={rangeSimilarity:F3}");
+        
+        return Mathf.Clamp01(rangeSimilarity);
+    }
+    
+    // NEW: Calculate pitch contour similarity (pattern matching)
+    private float CalculateContourScore(List<float> normalizedNative, List<float> normalizedUser)
+    {
+        if (normalizedNative.Count < 2 || normalizedUser.Count < 2)
+            return 0f;
+        
+        // Calculate pitch direction changes (contour)
+        var nativeContour = CalculatePitchContour(normalizedNative);
+        var userContour = CalculatePitchContour(normalizedUser);
+        
+        if (nativeContour.Count == 0 || userContour.Count == 0)
+            return 0f;
+        
+        // Compare contours with Dynamic Time Warping approximation
+        float contourSimilarity = CalculateContourSimilarity(nativeContour, userContour);
+        
+        DebugLog($"?? Contour analysis: Native segments={nativeContour.Count}, " +
+                $"User segments={userContour.Count}, Similarity={contourSimilarity:F3}");
+        
+        return contourSimilarity;
+    }
+    
+    // NEW: Extract pitch movement patterns
+    private List<float> CalculatePitchContour(List<float> pitches)
+    {
+        var contour = new List<float>();
+        
+        for (int i = 1; i < pitches.Count; i++)
+        {
+            float change = pitches[i] - pitches[i - 1];
+            contour.Add(change);
+        }
+        
+        return contour;
+    }
+    
+    // NEW: Compare contour patterns
+    private float CalculateContourSimilarity(List<float> contour1, List<float> contour2)
+    {
+        // Simple approach: resample to same length and calculate correlation
+        int minLength = Mathf.Min(contour1.Count, contour2.Count);
+        if (minLength < 2) return 0f;
+        
+        var resampled1 = ResampleList(contour1, minLength);
+        var resampled2 = ResampleList(contour2, minLength);
+        
+        return CalculateCorrelation(resampled1, resampled2);
+    }
+    
+    // NEW: Resample list to target length
+    private List<float> ResampleList(List<float> source, int targetLength)
+    {
+        if (source.Count == targetLength) return new List<float>(source);
+        if (source.Count == 0) return new List<float>();
+        
+        var resampled = new List<float>();
+        for (int i = 0; i < targetLength; i++)
+        {
+            float index = (float)i / (targetLength - 1) * (source.Count - 1);
+            int intIndex = Mathf.FloorToInt(index);
+            float fraction = index - intIndex;
+            
+            if (intIndex >= source.Count - 1)
+            {
+                resampled.Add(source[source.Count - 1]);
+            }
+            else
+            {
+                // Linear interpolation
+                float value = source[intIndex] * (1f - fraction) + source[intIndex + 1] * fraction;
+                resampled.Add(value);
+            }
+        }
+        
+        return resampled;
+    }
+    
     private float CalculateRhythmScore(List<PitchDataPoint> native, List<PitchDataPoint> user)
     {
-        DebugLog("?? Calculating prosodic rhythm score...");
+        // Simple rhythm comparison algorithm (placeholder)
+        // Compare speaking pace and timing patterns
         
-        try
+        var nativeSpeechSegments = GetSpeechSegments(native);
+        var userSpeechSegments = GetSpeechSegments(user);
+        
+        if (nativeSpeechSegments.Count == 0 || userSpeechSegments.Count == 0)
         {
-            // Use advanced energy-based rhythm analysis
-            float score = AdvancedScoringAlgorithms.CalculateProsodicRhythmScore(native, user, advancedSettings);
-            
-            DebugLog($"?? Prosodic rhythm score: {score:F1}%");
-            return score;
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[ScoringManager] Error in rhythm scoring: {e.Message}");
+            DebugLog("?? No speech segments found for rhythm analysis");
             return 0f;
         }
+        
+        // Calculate average segment duration difference
+        float nativeAvgDuration = nativeSpeechSegments.Average(s => s.duration);
+        float userAvgDuration = userSpeechSegments.Average(s => s.duration);
+        
+        float durationDifference = Mathf.Abs(nativeAvgDuration - userAvgDuration);
+        float maxDifference = Mathf.Max(nativeAvgDuration, userAvgDuration);
+        
+        float rhythmAccuracy = 1f - (durationDifference / maxDifference);
+        float score = Mathf.Clamp01(rhythmAccuracy) * 100f;
+        
+        DebugLog($"?? Rhythm scoring: Native={nativeAvgDuration:F2}s, User={userAvgDuration:F2}s, difference={durationDifference:F2}s, score={score:F1}");
+        
+        return score;
+    }
+    
+    private float CalculateCorrelation(List<float> data1, List<float> data2)
+    {
+        // Simple correlation calculation
+        // Resample to same length for comparison
+        int minLength = Mathf.Min(data1.Count, data2.Count);
+        if (minLength < 2) return 0f;
+        
+        float sum1 = 0f, sum2 = 0f, sum1Sq = 0f, sum2Sq = 0f, sumProducts = 0f;
+        
+        for (int i = 0; i < minLength; i++)
+        {
+            float val1 = data1[i * data1.Count / minLength];
+            float val2 = data2[i * data2.Count / minLength];
+            
+            sum1 += val1;
+            sum2 += val2;
+            sum1Sq += val1 * val1;
+            sum2Sq += val2 * val2;
+            sumProducts += val1 * val2;
+        }
+        
+        float numerator = (minLength * sumProducts) - (sum1 * sum2);
+        float denominator = Mathf.Sqrt(((minLength * sum1Sq) - (sum1 * sum1)) * ((minLength * sum2Sq) - (sum2 * sum2)));
+        
+        return denominator != 0f ? numerator / denominator : 0f;
+    }
+    
+    private List<SpeechSegment> GetSpeechSegments(List<PitchDataPoint> pitchData)
+    {
+        var segments = new List<SpeechSegment>();
+        bool inSpeech = false;
+        float segmentStart = 0f;
+        
+        for (int i = 0; i < pitchData.Count; i++)
+        {
+            bool hasPitch = pitchData[i].HasPitch;
+            
+            if (!inSpeech && hasPitch)
+            {
+                // Start of speech segment
+                inSpeech = true;
+                segmentStart = pitchData[i].timestamp;
+            }
+            else if (inSpeech && !hasPitch)
+            {
+                // End of speech segment
+                inSpeech = false;
+                float duration = pitchData[i].timestamp - segmentStart;
+                if (duration > 0.1f) // Minimum segment duration
+                {
+                    segments.Add(new SpeechSegment { start = segmentStart, duration = duration });
+                }
+            }
+        }
+        
+        // Handle case where audio ends during speech
+        if (inSpeech && pitchData.Count > 0)
+        {
+            float duration = pitchData.Last().timestamp - segmentStart;
+            if (duration > 0.1f)
+            {
+                segments.Add(new SpeechSegment { start = segmentStart, duration = duration });
+            }
+        }
+        
+        return segments;
     }
     
     private void SetupVisualizations()
@@ -639,11 +893,11 @@ public class ScoringManager : MonoBehaviour
     public bool IsUserClipPlaying => isUserClipPlaying;
     public AudioClip UserRecordingClip => userRecordingClip;
     
-    // Public settings control
-    public void UpdateAdvancedSettings(AdvancedScoringAlgorithms.AdvancedScoringSettings newSettings)
+    // NEW: Settings control
+    public void SetNormalizedScoring(bool enabled)
     {
-        advancedSettings = newSettings;
-        DebugLog("?? Advanced scoring settings updated");
+        useNormalizedScoring = enabled;
+        DebugLog($"??? Normalized scoring: {(enabled ? "Enabled" : "Disabled")}");
     }
     
     private void DebugLog(string message)
@@ -669,3 +923,8 @@ public class ScoringManager : MonoBehaviour
         }
     }
 }
+
+// NOTE: Supporting data structures are now in separate files:
+// - ScoringResults.cs
+// - SpeechSegment.cs  
+// - ScoringSettings.cs
