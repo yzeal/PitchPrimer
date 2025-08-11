@@ -176,7 +176,8 @@ public class PitchVisualizer : MonoBehaviour
     private List<GameObject> staticDisplayCubes = new List<GameObject>();
     
     // NEW: Delay cube tracking
-    private int delayCubeCount = 0;
+    private int initialDelayCubeCount = 0;
+    private int loopDelayCubeCount = 0;
     private bool delayCompensationEnabled = false;
 
     private enum CubeState
@@ -621,30 +622,33 @@ public class PitchVisualizer : MonoBehaviour
         
         currentSilenceDuration = silenceDuration;
         
-        // NEW: Get delay cube info from ChorusingManager
+        // NEW: Get both delay types from ChorusingManager
         var chorusingManager = FindFirstObjectByType<ChorusingManager>();
         if (chorusingManager != null)
         {
-            delayCubeCount = chorusingManager.GetDelayCubeCount();
+            initialDelayCubeCount = chorusingManager.GetInitialDelayCubeCount();
+            loopDelayCubeCount = chorusingManager.GetLoopDelayCubeCount();
             delayCompensationEnabled = chorusingManager.IsDelayCompensationEnabled();
         }
         else
         {
-            delayCubeCount = 0;
+            initialDelayCubeCount = 0;
+            loopDelayCubeCount = 0;
             delayCompensationEnabled = false;
         }
         
         originalNativePitchData = new List<PitchDataPoint>(pitchDataList);
         nativeClipDuration = pitchDataList.Count > 0 ? pitchDataList[pitchDataList.Count - 1].timestamp : 0f;
         
-        // Calculate total length including delay cubes
+        // Calculate total length using MAXIMUM delay cubes for consistent spacing
+        int maxDelayCubes = Mathf.Max(initialDelayCubeCount, loopDelayCubeCount);
         float totalSilenceCubes = silenceDuration / settings.analysisInterval;
         repetitionTotalLength = (originalNativePitchData.Count + totalSilenceCubes) * settings.cubeSpacing;
         scrollSpeed = settings.cubeSpacing / settings.analysisInterval;
         
         Debug.Log($"[PitchVisualizer] {gameObject.name} REPETITIONS SYSTEM:");
         Debug.Log($"  Audio cubes: {originalNativePitchData.Count}, Total silence cubes: {totalSilenceCubes:F0}");
-        Debug.Log($"  Delay cubes: {delayCubeCount}, Regular silence: {totalSilenceCubes - delayCubeCount:F0}");
+        Debug.Log($"  Initial delay cubes: {initialDelayCubeCount}, Loop delay cubes: {loopDelayCubeCount}");
         Debug.Log($"  Delay compensation: {(delayCompensationEnabled ? "ENABLED" : "DISABLED")}");
         Debug.Log($"  Repetition length: {repetitionTotalLength:F1} units");
         
@@ -686,7 +690,10 @@ public class PitchVisualizer : MonoBehaviour
     {
         var repetition = new RepetitionData(startPosition, repetitionIndex);
         
-        // NEW: Create delay cubes FIRST (if compensation enabled)
+        // NEW: Use different delay cube counts based on repetition type
+        int delayCubeCount = (repetitionIndex == 0) ? initialDelayCubeCount : loopDelayCubeCount;
+        
+        // Create delay cubes FIRST (if compensation enabled)
         if (delayCompensationEnabled && delayCubeCount > 0)
         {
             for (int d = 0; d < delayCubeCount; d++)
@@ -700,13 +707,28 @@ public class PitchVisualizer : MonoBehaviour
                     Vector3 pos = new Vector3(cubeX, 0, 0) + settings.trackOffset;
                     delayCube.transform.localPosition = pos;
                     
+                    // Visual distinction between initial and loop delay cubes
+                    if (settings.showDelayCompensationCubes)
+                    {
+                        var renderer = delayCube.GetComponent<Renderer>();
+                        if (renderer != null)
+                        {
+                            Color delayColor = (repetitionIndex == 0) ?
+                                settings.delayCompensationColor : // Initial = blue
+                                new Color(0.8f, 0.4f, 0.2f, 0.3f); // Loop = orange
+                            renderer.material.color = delayColor;
+                        }
+                        
+                        delayCube.name = $"{(repetitionIndex == 0 ? "InitialDelay" : "LoopDelay")}Cube_{d}";
+                    }
+                    
                     repetition.cubes.Add(delayCube);
                 }
             }
         }
         
-        // Create audio cubes (offset by delay cubes if enabled)
-        int audioOffset = delayCompensationEnabled ? delayCubeCount : 0;
+        // Create audio cubes (offset by current delay cubes)
+        int audioOffset = (delayCompensationEnabled && delayCubeCount > 0) ? delayCubeCount : 0;
         for (int i = 0; i < originalNativePitchData.Count; i++)
         {
             var pitchData = originalNativePitchData[i];
@@ -723,12 +745,20 @@ public class PitchVisualizer : MonoBehaviour
             }
         }
         
-        // Create regular silence cubes (after audio cubes)
+        // FIXED: Create regular silence cubes (NO double subtraction!)
         int regularSilenceCubes = Mathf.RoundToInt(silenceDuration / settings.analysisInterval);
-        if (delayCompensationEnabled)
-        {
-            regularSilenceCubes -= delayCubeCount; // Subtract delay cubes from total
-        }
+        
+        // REMOVED: Double subtraction bug - silenceDuration already accounts for delay cubes!
+        // if (delayCompensationEnabled && delayCubeCount > 0)
+        // {
+        //     regularSilenceCubes -= delayCubeCount; // BUG: Already subtracted in ChorusingManager!
+        // }
+        
+        // ENHANCED DEBUG: Show what's happening
+        Debug.Log($"SILENCE DEBUG: silenceDuration={silenceDuration:F3}s, analysisInterval={settings.analysisInterval:F3}s");
+        Debug.Log($"  regularSilenceCubes calculation: {silenceDuration:F3} ÷ {settings.analysisInterval:F3} = {regularSilenceCubes}");
+        Debug.Log($"  delayCubeCount: {delayCubeCount}");
+        Debug.Log($"  FIXED: No double subtraction - silence cubes stay consistent at {regularSilenceCubes}");
         
         for (int s = 0; s < regularSilenceCubes; s++)
         {
@@ -747,29 +777,56 @@ public class PitchVisualizer : MonoBehaviour
         
         activeRepetitions.Add(repetition);
         
-        DebugLog($"Created repetition {repetitionIndex}: {(delayCompensationEnabled ? delayCubeCount : 0)} delay + {originalNativePitchData.Count} audio + {regularSilenceCubes} silence cubes");
+        string delayType = (repetitionIndex == 0) ? "initial" : "loop";
+        DebugLog($"Created repetition {repetitionIndex}: {delayCubeCount} {delayType} delay + {originalNativePitchData.Count} audio + {regularSilenceCubes} silence cubes");
     }
     
-    // SIMPLIFIED: Event trigger logic without loopAudioTriggerOffset
+    // ENHANCED: Event trigger logic mit ausführlichem Debug-Logging
     private void CheckForLoopTriggers()
     {
         if (!isNativeTrack) return;
         
         float cubesPerLoop = repetitionTotalLength / settings.cubeSpacing;
         
-        // SIMPLIFIED: Only delay compensation, no additional offset
-        float triggerAdjustment = (delayCompensationEnabled && delayCubeCount > 0) ? delayCubeCount : 0f;
-        float adjustedCubes = totalElapsedCubes + triggerAdjustment; // REMOVED: settings.loopAudioTriggerOffset
-        int approachingLoop = Mathf.FloorToInt(adjustedCubes / cubesPerLoop);
+        // CALCULATE: Welcher echte Loop basierend auf totalElapsedCubes
+        int actualLoopNumber = Mathf.FloorToInt(totalElapsedCubes / cubesPerLoop);
         
-        // Trigger for BOTH initial (approachingLoop >= 0) and loops (approachingLoop > 0)
-        if (approachingLoop >= 0 && !triggeredLoops.Contains(approachingLoop))
+        // NEW: Dynamic delay adjustment based on loop type
+        float triggerAdjustment = 0f;
+        if (delayCompensationEnabled)
         {
-            triggeredLoops.Add(approachingLoop);
+            // Use different delays for initial vs loops
+            triggerAdjustment = (actualLoopNumber == 0) ? initialDelayCubeCount : loopDelayCubeCount;
+        }
+        
+        float adjustedCubes = totalElapsedCubes + triggerAdjustment;
+        int finalApproachingLoop = Mathf.FloorToInt(adjustedCubes / cubesPerLoop);
+        
+        // ENHANCED DEBUG - Log EVERY call for debugging
+        if (totalElapsedCubes > 0 && Mathf.FloorToInt(totalElapsedCubes) % 10 == 0) // Every 10 cubes
+        {
+            Debug.Log($"[PitchVisualizer] TRIGGER DEBUG:");
+            Debug.Log($"  totalElapsedCubes: {totalElapsedCubes:F1}");
+            Debug.Log($"  cubesPerLoop: {cubesPerLoop:F1}");
+            Debug.Log($"  actualLoopNumber: {actualLoopNumber}");
+            Debug.Log($"  triggerAdjustment: {triggerAdjustment} (using {(actualLoopNumber == 0 ? "INITIAL" : "LOOP")} delay)");
+            Debug.Log($"  adjustedCubes: {adjustedCubes:F1}");
+            Debug.Log($"  finalApproachingLoop: {finalApproachingLoop}");
+            Debug.Log($"  triggeredLoops: [{string.Join(", ", triggeredLoops)}]");
+        }
+        
+        // Trigger for BOTH initial and loops
+        if (finalApproachingLoop >= 0 && !triggeredLoops.Contains(finalApproachingLoop))
+        {
+            triggeredLoops.Add(finalApproachingLoop);
             OnAudioLoopTrigger?.Invoke();
             
-            string eventType = approachingLoop == 0 ? "INITIAL" : $"LOOP {approachingLoop}";
-            Debug.Log($"[PitchVisualizer] {gameObject.name} {eventType} audio triggered at {totalElapsedCubes:F1} cubes (delay offset: {triggerAdjustment})");
+            string eventType = finalApproachingLoop == 0 ? "INITIAL" : $"LOOP {finalApproachingLoop}";
+            Debug.Log($"[PitchVisualizer] *** {gameObject.name} {eventType} AUDIO TRIGGERED ***");
+            Debug.Log($"  At totalElapsedCubes: {totalElapsedCubes:F1}");
+            Debug.Log($"  Using delay type: {(actualLoopNumber == 0 ? "INITIAL" : "LOOP")}");
+            Debug.Log($"  Delay offset: {triggerAdjustment}");
+            Debug.Log($"  adjustedCubes: {adjustedCubes:F1}");
         }
     }
     

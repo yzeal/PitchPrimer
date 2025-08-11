@@ -5268,9 +5268,10 @@ MonoBehaviour:
     enableDebugLogging: 0
   analysisInterval: 0.05
   initialAudioDelay: 0.6
+  loopAudioDelay: 0
   compensateDelayWithSilence: 1
   requestedSilenceDuration: 0.6
-  quantizedSilenceDuration: 0
+  quantizedSilenceDuration: 0.05
   enableDebugLogging: 0
   inputManager: {fileID: 1668862832}
   enableUserRecordingControl: 1
