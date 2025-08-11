@@ -751,24 +751,26 @@ public class PitchVisualizer : MonoBehaviour
         DebugLog($"Created repetition {repetitionIndex}: {(delayCompensationEnabled ? delayCubeCount : 0)} delay + {originalNativePitchData.Count} audio + {regularSilenceCubes} silence cubes");
     }
     
-    // ENHANCED: Event trigger logic with delay compensation
+    // ENHANCED: Event trigger logic for ALL events (initial + loops)
     private void CheckForLoopTriggers()
     {
         if (!isNativeTrack) return;
         
         float cubesPerLoop = repetitionTotalLength / settings.cubeSpacing;
         
-        // NEW: Adjust trigger point based on delay cubes (if compensation enabled)
+        // Apply delay compensation for ALL triggers (initial + loops)
         float triggerAdjustment = (delayCompensationEnabled && delayCubeCount > 0) ? delayCubeCount : 0f;
         float adjustedCubes = totalElapsedCubes + settings.loopAudioTriggerOffset + triggerAdjustment;
         int approachingLoop = Mathf.FloorToInt(adjustedCubes / cubesPerLoop);
         
-        // Trigger if we haven't triggered this loop yet and it's not the initial loop
-        if (approachingLoop > 0 && !triggeredLoops.Contains(approachingLoop))
+        // Trigger for BOTH initial (approachingLoop >= 0) and loops (approachingLoop > 0)
+        if (approachingLoop >= 0 && !triggeredLoops.Contains(approachingLoop))
         {
             triggeredLoops.Add(approachingLoop);
             OnAudioLoopTrigger?.Invoke();
-            Debug.Log($"[PitchVisualizer] {gameObject.name} Loop {approachingLoop} triggered at {totalElapsedCubes:F1} cubes (adjusted: {adjustedCubes:F1}, delay offset: {triggerAdjustment})");
+            
+            string eventType = approachingLoop == 0 ? "INITIAL" : $"LOOP {approachingLoop}";
+            Debug.Log($"[PitchVisualizer] {gameObject.name} {eventType} audio triggered at {totalElapsedCubes:F1} cubes (adjusted: {adjustedCubes:F1}, delay offset: {triggerAdjustment})");
         }
     }
     

@@ -46,9 +46,8 @@ public class ChorusingManager : MonoBehaviour
     private float chorusingStartTime;
     private float audioStartTime;
 
-    // Audio control flags
+    // Audio control flags - SIMPLIFIED
     private bool hasAudioStarted = false;
-    private bool hasDelayedStart = false;
 
     void Start()
     {
@@ -77,7 +76,7 @@ public class ChorusingManager : MonoBehaviour
             return;
         }
 
-        // Calculate quantized silence (keep this)
+        // Calculate quantized silence (includes delay compensation)
         CalculateQuantizedSilence();
 
         // Start microphone analysis
@@ -86,40 +85,51 @@ public class ChorusingManager : MonoBehaviour
             micAnalysis.StartAnalysis();
         }
 
-        // Setup visualization (no longer subscribes to initial audio events)
+        // Setup visualization with delay compensation
         if (nativeVisualizer != null)
         {
             nativeVisualizer.PreRenderNativeTrack(nativePitchData, quantizedSilenceDuration);
             nativeVisualizer.ResetAudioTriggers();
             
-            // Subscribe to LOOP events only (not initial)
-            nativeVisualizer.OnAudioLoopTrigger += TriggerAudioLoop;
+            // Subscribe to ALL audio events (initial AND loops)
+            nativeVisualizer.OnAudioLoopTrigger += TriggerAudio;
         }
 
-        // Setup audio source and START IMMEDIATELY
+        // Setup audio source but DON'T start immediately
         if (nativeAudioSource != null)
         {
             nativeAudioSource.clip = currentRecording.AudioClip;
             nativeAudioSource.loop = false;
-            nativeAudioSource.Play(); // Start audio immediately
+            // REMOVED: nativeAudioSource.Play(); - Audio starts via events now!
             audioStartTime = Time.time;
-            hasAudioStarted = true;
-            DebugLog("?? Audio started immediately - visual delay active");
+            DebugLog("?? Audio configured - waiting for visual trigger");
         }
 
         isChorusingActive = true;
         chorusingStartTime = Time.time;
-        hasDelayedStart = false; // Will be set to true after delay
 
-        DebugLog($"Chorusing started - visual delay: {initialAudioDelay}s");
+        DebugLog($"Chorusing started - using delay cube compensation only");
     }
 
-    private void TriggerAudioLoop()
+    // RENAMED: Handle both initial and loop audio
+    private void TriggerAudio()
     {
-        if (hasAudioStarted && nativeAudioSource != null)
+        if (nativeAudioSource != null)
         {
             nativeAudioSource.Play();
-            DebugLog("?? Audio loop triggered by visualizer!");
+            hasAudioStarted = true;
+            DebugLog("?? Audio triggered by visualizer (delay-compensated)!");
+        }
+    }
+
+    // SIMPLIFIED: Remove visual delay logic
+    private void UpdateSimpleVisualization()
+    {
+        if (nativeVisualizer != null && nativePitchData != null)
+        {
+            // SIMPLIFIED: No more delay logic - visual starts immediately
+            float visualElapsedTime = Time.time - chorusingStartTime;
+            nativeVisualizer.UpdateNativeTrackPlayback(visualElapsedTime, nativePitchData);
         }
     }
 
@@ -137,10 +147,10 @@ public class ChorusingManager : MonoBehaviour
             nativeAudioSource.Stop();
         }
 
-        // Unsubscribe from LOOP events only (no initial event anymore)
+        // Unsubscribe from unified audio events
         if (nativeVisualizer != null)
         {
-            nativeVisualizer.OnAudioLoopTrigger -= TriggerAudioLoop;
+            nativeVisualizer.OnAudioLoopTrigger -= TriggerAudio;
         }
 
         // Clear visualizations
@@ -155,33 +165,7 @@ public class ChorusingManager : MonoBehaviour
         }
 
         hasAudioStarted = false;
-        hasDelayedStart = false;
         DebugLog("Chorusing stopped!");
-    }
-
-    private void UpdateSimpleVisualization()
-    {
-        if (nativeVisualizer != null && nativePitchData != null)
-        {
-            // Check if we should start visual updates (after delay)
-            if (!hasDelayedStart)
-            {
-                if (Time.time - chorusingStartTime >= initialAudioDelay)
-                {
-                    hasDelayedStart = true;
-                    DebugLog("?? Visual movement started after delay");
-                }
-                else
-                {
-                    // Still in delay period - don't update visuals
-                    return;
-                }
-            }
-
-            // Calculate elapsed time since visual start (not audio start)
-            float visualElapsedTime = Time.time - (chorusingStartTime + initialAudioDelay);
-            nativeVisualizer.UpdateNativeTrackPlayback(visualElapsedTime, nativePitchData);
-        }
     }
 
     // KEPT: Quantized silence calculation (still needed for visual sync)
@@ -399,7 +383,7 @@ public class ChorusingManager : MonoBehaviour
 
     void OnDestroy()
     {
-        // WICHTIG: Event-Subscription cleanup
+        // IMPORTANT: Event-Subscription cleanup
         if (micAnalysis != null)
         {
             micAnalysis.OnPitchDetected -= OnUserPitchDetected;
@@ -407,7 +391,7 @@ public class ChorusingManager : MonoBehaviour
         
         if (nativeVisualizer != null)
         {
-            nativeVisualizer.OnAudioLoopTrigger -= TriggerAudioLoop;
+            nativeVisualizer.OnAudioLoopTrigger -= TriggerAudio; // Unified cleanup
         }
     }
 
