@@ -389,3 +389,158 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 **Error classification important:** Technical errors vs. user behavior need different handling
 
 #### **STATUS:** Race condition eliminated, UI state management robust, ready for advanced scoring algorithm development! 🎯✅
+
+## LATEST UPDATE - Day 14: PitchVisualizer Audio Timing & Cube Positioning Bug Investigation 🔧🐛
+
+### 🎯 CURRENT ISSUE: Audio Triggering and Highlighting Problems
+**PROBLEM IDENTIFIED:** Complex audio timing and cube highlighting issues in PitchVisualizer during chorusing
+- **Symptoms:** Audio triggers too early between 1st and 2nd repetition, some audio cubes not highlighting properly
+- **Scope:** Only affects transition between first and second loop, subsequent loops work correctly
+- **Impact:** Disrupts user synchronization experience during chorusing exercises
+
+#### Specific Bug Manifestations:
+- **Audio timing:** Second loop audio starts too early, overlapping with end of first loop
+- **Cube highlighting:** Last few audio cubes of first repetition don't get highlighted when passing focal point  
+- **Pattern:** Problem only occurs between Rep0 → Rep1, Rep1+ → Rep2+ work correctly
+- **Cube counts:** Confirmed correct (Rep0: 100 cubes, Rep1+: 88 cubes) but timing calculations incorrect
+
+### 🔍 ROOT CAUSE ANALYSIS: Double-Subtraction Bug Resolution
+**MAJOR PROGRESS:** Successfully identified and fixed double-subtraction bug in silence cube calculation
+- **Original issue:** ChorusingManager calculated delay cubes into silence duration, PitchVisualizer subtracted again
+- **Fix implemented:** Removed double subtraction in CreateSingleRepetition method
+- **Result:** Silence cubes now consistent (11 cubes for all repetitions with 0.05s analysis interval)
+
+#### The Double-Subtraction Fix:
+    
+    OLD (Buggy):
+    // ChorusingManager already includes delay cubes in silenceDuration
+    quantizedSilenceDuration = 1.134s // (includes 12 delay cubes worth)
+    
+    // PitchVisualizer then subtracts AGAIN
+    regularSilenceCubes = Mathf.RoundToInt(silenceDuration / settings.analysisInterval);
+    regularSilenceCubes -= delayCubeCount; // ❌ DOUBLE SUBTRACTION!
+    
+    NEW (Fixed):
+    // ChorusingManager calculates pure silence only
+    quantizedSilenceDuration = 0.534s // (pure silence, no delay mixing)
+    
+    // PitchVisualizer uses directly
+    regularSilenceCubes = Mathf.RoundToInt(silenceDuration / settings.analysisInterval);
+    // ✅ NO double subtraction - delay cubes handled separately
+
+### 🎨 IMPROVED CUBE POSITIONING: Individual Repetition Length Handling
+**ARCHITECTURAL IMPROVEMENT:** Replaced uniform repetition spacing with accurate individual positioning
+- **Old system:** Used single `repetitionTotalLength` for all repetitions (caused overlaps)
+- **New system:** Each repetition positioned based on actual predecessor length
+- **Result:** Perfect positioning with no gaps or overlaps between repetitions
+
+#### Positioning Logic Enhancement:
+
+    OLD (Problematic):
+    // All repetitions use same spacing
+    float repStartPos = focalPointLocalX + (rep * repetitionTotalLength);
+    // Problem: Rep0 length ≠ Rep1+ length, causes overlaps
+    
+    NEW (Fixed):
+    if (rep == 0) {
+        repStartPos = focalPointLocalX;
+    } else {
+        // Calculate actual end position of previous repetition
+        var previousRep = activeRepetitions[rep - 1];
+        int previousTotalCubes = calculateActualRepetitionLength(previousRep);
+        repStartPos = previousRep.startPosition + (previousTotalCubes * settings.cubeSpacing);
+    }
+
+### 🔧 REMAINING INVESTIGATION: Audio Trigger Timing Issues
+**CURRENT STATUS:** Cube positioning fixed, but audio trigger timing still problematic
+- **Debug findings:** Audio triggers use wrong `cubesPerLoop` calculation (87.7 instead of 100)
+- **Attempted fixes:** Multiple approaches tried but caused audio system to break completely
+- **Decision:** Too much context complexity in current chat session, need fresh approach
+
+#### Debug Data Analysis:
+    
+    CURRENT MEASUREMENTS (from logs):
+    - focalIndex: 15 (correct)
+    - totalElapsedCubes: 20-21 (normal progression)
+    - Rep0 actual length: 100 cubes = 80.0 units
+    - Rep1+ actual length: 88 cubes = 70.4 units
+    - cubesPerLoop calculation: 87.7 (INCORRECT - should be 100 for first loop)
+    
+    TIMING PROBLEM:
+    - Audio should trigger when Rep0 completes (after 100 cubes)
+    - Currently triggers too early (around 87.7 cubes)
+    - Causes second loop audio to start before first loop ends
+
+### 🏗️ ARCHITECTURAL INSIGHTS: Delay Cube System Design
+**LESSON LEARNED:** Clean separation between delay compensation and silence calculation essential
+- **Delay cubes:** Visual timing compensation, handled by PitchVisualizer
+- **Silence cubes:** Actual pause between recordings, calculated by ChorusingManager  
+- **Key principle:** Each system should handle its own responsibility without cross-contamination
+
+#### Delay System Architecture:
+    
+    RESPONSIBILITIES:
+    ChorusingManager:
+    - Calculate pure silence duration between recordings
+    - Provide delay cube counts for visual compensation
+    - Handle audio playback timing (separate from visual)
+    
+    PitchVisualizer:
+    - Create delay cubes for visual compensation
+    - Create silence cubes from pure silence duration
+    - Handle visual timing and highlighting
+    - Trigger audio events based on visual progression
+
+### 🧪 DEBUGGING METHODOLOGY: Enhanced Logging Success
+**EFFECTIVE TECHNIQUES:** Comprehensive debug logging proved invaluable for complex timing issues
+- **Emoji coding:** Visual log scanning with 🎯 ✅ ❌ ⚠️ 📊 symbols
+- **Quantitative metrics:** Precise cube counts, positions, timing calculations
+- **State tracking:** Monitor totalElapsedCubes, repetition indices, trigger points
+- **Pattern analysis:** Compare expected vs actual values across multiple cycles
+
+#### Debug Log Analysis Pattern:
+    
+    SUCCESSFUL DEBUGGING APPROACH:
+    1. Add comprehensive logging at key decision points
+    2. Run system and capture multiple cycles of behavior
+    3. Analyze patterns: what's consistent vs what varies incorrectly
+    4. Identify mathematical discrepancies in calculations
+    5. Trace data flow to find where incorrect values originate
+    6. Implement targeted fixes based on evidence
+
+### 📊 CURRENT SYSTEM STATE: Partially Fixed with Known Remaining Issues
+**WORKING CORRECTLY:**
+- ✅ Silence cube calculation (consistent 11 cubes per repetition)
+- ✅ Cube positioning (no overlaps, perfect spacing)
+- ✅ Cube highlighting logic (all audio cubes get proper state updates)
+- ✅ Visual repetition management (creation, removal, scrolling)
+
+**STILL PROBLEMATIC:**
+- ❌ Audio trigger timing (second loop starts too early)
+- ❌ Audio trigger calculation (uses wrong cubesPerLoop value)
+- ⚠️ Potential highlighting issues related to timing (unconfirmed)
+
+### 🔮 NEXT SESSION STRATEGY: Fresh Context Audio Timing Fix
+**APPROACH:** New chat session with focused scope on audio trigger timing only
+- **Scope limitation:** Focus only on CheckForLoopTriggers method timing calculation
+- **Context preparation:** Provide only essential information about the audio timing bug
+- **Avoid:** Overly complex solutions that break other working systems
+- **Goal:** Minimal, surgical fix to audio trigger timing calculation
+
+#### Preparation for Next Session:
+    
+    KEY INFORMATION TO PROVIDE:
+    1. Audio triggers too early between Rep0 and Rep1
+    2. cubesPerLoop calculation is incorrect (87.7 vs 100)
+    3. Rep0 has 100 cubes, Rep1+ have 88 cubes each
+    4. Current CheckForLoopTriggers logic and debug findings
+    5. Constraint: Minimal changes only, avoid breaking working systems
+
+### 📚 LESSONS LEARNED: Complex System Debugging
+- **Context overload real problem:** Too much discussion history can impede focused solutions
+- **Surgical fixes preferred:** Minimal changes better than architectural overhauls for working systems
+- **Debug investment pays off:** Comprehensive logging made root cause identification possible
+- **Separation of concerns critical:** Clean boundaries between subsystems prevent cascade bugs
+- **Fresh perspective valuable:** Sometimes stepping back and starting over is most efficient
+
+#### **STATUS:** Cube positioning and silence calculation fixed, audio trigger timing requires focused fresh approach! 🎯🔧
