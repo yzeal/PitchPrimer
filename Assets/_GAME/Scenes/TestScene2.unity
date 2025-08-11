@@ -2478,11 +2478,12 @@ MonoBehaviour:
     saturation: 0.8
     brightness: 1
     analysisInterval: 0.05
-    loopAudioTriggerOffset: 1
     enableVisibilityControl: 1
     invisibleAlpha: 0
     visibleAlpha: 1
     visibilityTransitionSpeed: 5
+    showDelayCompensationCubes: 1
+    delayCompensationColor: {r: 0.2, g: 0.4, b: 0.8, a: 0.3}
   isNativeTrack: 0
 --- !u!1 &512895047
 GameObject:
@@ -4131,11 +4132,12 @@ MonoBehaviour:
     saturation: 0.8
     brightness: 1
     analysisInterval: 0.1
-    loopAudioTriggerOffset: 1
     enableVisibilityControl: 1
     invisibleAlpha: 0
     visibleAlpha: 1
     visibilityTransitionSpeed: 5
+    showDelayCompensationCubes: 1
+    delayCompensationColor: {r: 0.2, g: 0.4, b: 0.8, a: 0.3}
   showRuntimeInfo: 1
 --- !u!4 &897609204
 Transform:
@@ -5183,11 +5185,12 @@ MonoBehaviour:
     saturation: 0.5
     brightness: 0.7
     analysisInterval: 0.05
-    loopAudioTriggerOffset: 4
     enableVisibilityControl: 1
     invisibleAlpha: 0
     visibleAlpha: 1
     visibilityTransitionSpeed: 5
+    showDelayCompensationCubes: 1
+    delayCompensationColor: {r: 0.2, g: 0.4, b: 0.8, a: 0.3}
   isNativeTrack: 0
 --- !u!4 &1109803072
 Transform:
@@ -5264,7 +5267,8 @@ MonoBehaviour:
     useSmoothing: 1
     enableDebugLogging: 0
   analysisInterval: 0.05
-  initialAudioDelay: 0.5
+  initialAudioDelay: 0.6
+  compensateDelayWithSilence: 1
   requestedSilenceDuration: 0.6
   quantizedSilenceDuration: 0
   enableDebugLogging: 0
@@ -9491,11 +9495,12 @@ MonoBehaviour:
     saturation: 0.8
     brightness: 1
     analysisInterval: 0.1
-    loopAudioTriggerOffset: 1
     enableVisibilityControl: 1
     invisibleAlpha: 0
     visibleAlpha: 1
     visibilityTransitionSpeed: 5
+    showDelayCompensationCubes: 1
+    delayCompensationColor: {r: 0.2, g: 0.4, b: 0.8, a: 0.3}
   isNativeTrack: 1
 --- !u!1 &1846575778
 GameObject:
@@ -10109,11 +10114,12 @@ MonoBehaviour:
     saturation: 0.8
     brightness: 1
     analysisInterval: 0.1
-    loopAudioTriggerOffset: 1
     enableVisibilityControl: 1
     invisibleAlpha: 0
     visibleAlpha: 1
     visibilityTransitionSpeed: 5
+    showDelayCompensationCubes: 1
+    delayCompensationColor: {r: 0.2, g: 0.4, b: 0.8, a: 0.3}
   isNativeTrack: 0
 --- !u!1 &1960501674
 GameObject:

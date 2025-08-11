@@ -93,8 +93,7 @@ public class VisualizationSettings
     public float analysisInterval = 0.1f;
     
     [Header("Audio Loop Trigger Settings")]
-    [Tooltip("Cubes before focal point to trigger audio loops")]
-    public int loopAudioTriggerOffset = 1;
+    // REMOVED: loopAudioTriggerOffset is no longer needed with delay cube system
     
     // NEW: User Recording Visibility
     [Header("User Recording Visibility")]
@@ -751,16 +750,16 @@ public class PitchVisualizer : MonoBehaviour
         DebugLog($"Created repetition {repetitionIndex}: {(delayCompensationEnabled ? delayCubeCount : 0)} delay + {originalNativePitchData.Count} audio + {regularSilenceCubes} silence cubes");
     }
     
-    // ENHANCED: Event trigger logic for ALL events (initial + loops)
+    // SIMPLIFIED: Event trigger logic without loopAudioTriggerOffset
     private void CheckForLoopTriggers()
     {
         if (!isNativeTrack) return;
         
         float cubesPerLoop = repetitionTotalLength / settings.cubeSpacing;
         
-        // Apply delay compensation for ALL triggers (initial + loops)
+        // SIMPLIFIED: Only delay compensation, no additional offset
         float triggerAdjustment = (delayCompensationEnabled && delayCubeCount > 0) ? delayCubeCount : 0f;
-        float adjustedCubes = totalElapsedCubes + settings.loopAudioTriggerOffset + triggerAdjustment;
+        float adjustedCubes = totalElapsedCubes + triggerAdjustment; // REMOVED: settings.loopAudioTriggerOffset
         int approachingLoop = Mathf.FloorToInt(adjustedCubes / cubesPerLoop);
         
         // Trigger for BOTH initial (approachingLoop >= 0) and loops (approachingLoop > 0)
@@ -770,7 +769,7 @@ public class PitchVisualizer : MonoBehaviour
             OnAudioLoopTrigger?.Invoke();
             
             string eventType = approachingLoop == 0 ? "INITIAL" : $"LOOP {approachingLoop}";
-            Debug.Log($"[PitchVisualizer] {gameObject.name} {eventType} audio triggered at {totalElapsedCubes:F1} cubes (adjusted: {adjustedCubes:F1}, delay offset: {triggerAdjustment})");
+            Debug.Log($"[PitchVisualizer] {gameObject.name} {eventType} audio triggered at {totalElapsedCubes:F1} cubes (delay offset: {triggerAdjustment})");
         }
     }
     
