@@ -679,14 +679,45 @@ public class PitchVisualizer : MonoBehaviour
         
         activeRepetitions.Clear();
         
-        // Create initial repetitions spanning the visible area
+        // ENHANCED DEBUG: Show positioning for each repetition
+        Debug.Log($"[PitchVisualizer] POSITIONING DEBUG for {settings.nativeRepetitions} repetitions:");
+        
+        // Create initial repetitions with CORRECT individual positioning
         for (int rep = 0; rep < settings.nativeRepetitions; rep++)
         {
-            float repStartPos = focalPointLocalX + (rep * repetitionTotalLength);
+            float repStartPos;
+            
+            if (rep == 0)
+            {
+                // First repetition starts at focal point
+                repStartPos = focalPointLocalX;
+            }
+            else
+            {
+                // Subsequent repetitions: Calculate ACTUAL end position of previous repetition
+                var previousRep = activeRepetitions[rep - 1];
+                int previousDelayCubes = (rep - 1 == 0) ? initialDelayCubeCount : loopDelayCubeCount;
+                int previousSilenceCubes = Mathf.RoundToInt(silenceDuration / settings.analysisInterval);
+                int previousTotalCubes = previousDelayCubes + originalNativePitchData.Count + previousSilenceCubes;
+                
+                repStartPos = previousRep.startPosition + (previousTotalCubes * settings.cubeSpacing);
+            }
+            
+            // ENHANCED DEBUG: Show exact positioning
+            Debug.Log($"  Rep {rep}: startPos={repStartPos:F1}");
+            if (rep > 0)
+            {
+                int currentDelayCubes = (rep == 0) ? initialDelayCubeCount : loopDelayCubeCount;
+                int currentSilenceCubes = Mathf.RoundToInt(silenceDuration / settings.analysisInterval);
+                int currentTotalCubes = currentDelayCubes + originalNativePitchData.Count + currentSilenceCubes;
+                Debug.Log($"    Expected length: {currentTotalCubes} cubes = {currentTotalCubes * settings.cubeSpacing:F1} units");
+                Debug.Log($"    Will end at: {repStartPos + (currentTotalCubes * settings.cubeSpacing):F1}");
+            }
+            
             CreateSingleRepetition(repStartPos, rep, silenceDuration);
         }
         
-        Debug.Log($"[PitchVisualizer] {gameObject.name} Created {activeRepetitions.Count} initial repetitions");
+        Debug.Log($"[PitchVisualizer] {gameObject.name} Created {activeRepetitions.Count} initial repetitions with correct positioning");
     }
     
     private void CreateSingleRepetition(float startPosition, int repetitionIndex, float silenceDuration)
@@ -836,7 +867,6 @@ public class PitchVisualizer : MonoBehaviour
     private void ManageRepetitions()
     {
         // NEW: Remove repetitions that are 2+ repetitions behind the focal point
-        // This allows cubes from first playthrough to stay visible until third playthrough passes focal point
         float extendedRemoveThreshold = focalPointLocalX - (2.0f * repetitionTotalLength);
         
         for (int i = activeRepetitions.Count - 1; i >= 0; i--)
@@ -855,16 +885,31 @@ public class PitchVisualizer : MonoBehaviour
             }
         }
         
-        // Add new repetitions on the right side if needed
+        // FIXED: Add new repetitions with CORRECT positioning
         while (activeRepetitions.Count < settings.nativeRepetitions)
         {
-            float lastRepEndPos = activeRepetitions.Count > 0 ? 
-                activeRepetitions[activeRepetitions.Count - 1].startPosition + repetitionTotalLength :
-                focalPointLocalX;
+            float lastRepEndPos;
+            int newRepIndex;
+            
+            if (activeRepetitions.Count > 0)
+            {
+                // Calculate ACTUAL end position of last repetition
+                var lastRep = activeRepetitions[activeRepetitions.Count - 1];
+                int lastRepDelayCubes = (lastRep.repetitionIndex == 0) ? initialDelayCubeCount : loopDelayCubeCount;
+                int lastRepSilenceCubes = Mathf.RoundToInt(currentSilenceDuration / settings.analysisInterval);
+                int lastRepTotalCubes = lastRepDelayCubes + originalNativePitchData.Count + lastRepSilenceCubes;
                 
-            int newRepIndex = activeRepetitions.Count > 0 ? 
-                activeRepetitions[activeRepetitions.Count - 1].repetitionIndex + 1 : 0;
+                lastRepEndPos = lastRep.startPosition + (lastRepTotalCubes * settings.cubeSpacing);
+                newRepIndex = lastRep.repetitionIndex + 1;
                 
+                Debug.Log($"[PitchVisualizer] DYNAMIC POSITIONING: Last rep {lastRep.repetitionIndex} ends at {lastRepEndPos:F1}");
+            }
+            else
+            {
+                lastRepEndPos = focalPointLocalX;
+                newRepIndex = 0;
+            }
+            
             CreateSingleRepetition(lastRepEndPos, newRepIndex, currentSilenceDuration);
             
             Debug.Log($"[PitchVisualizer] {gameObject.name} Added repetition {newRepIndex} at pos {lastRepEndPos:F1}");
