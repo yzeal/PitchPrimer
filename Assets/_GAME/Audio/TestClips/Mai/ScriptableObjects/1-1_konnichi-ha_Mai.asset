@@ -1,0 +1,100 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31baf52a5e6d15c4db47e682efdf089d, type: 3}
+  m_Name: 1-1_konnichi-ha_Mai
+  m_EditorClassIdentifier: 
+  audioClip: {fileID: 8300000, guid: 72c1dc44a3f3adc43addb5d17cbeaebe, type: 3}
+  pitchRangeMin: 277.20023
+  pitchRangeMax: 400.32532
+  autoCalculatePitchRange: 1
+  allowManualPitchAdjustment: 1
+  kanjiText: "\u3053\u3093\u306B\u3061\u306F\u3002"
+  kanaText: "\u3053\u3093\u306B\u3061\u306F\u3002"
+  romajiText: Konnichiwa.
+  englishTranslation: Hello.
+  usageDescription: Used to greet people during the day, from around 11am to afternoon.
+  speakerName: Mai
+  speakerGender: 2
+  speakerNotes: 
+  recordingName: 3-1_mayo_Mai
+  description: Mayo
+  difficultyLevel: 1
+  recordingType: 2
+  analysisSettings:
+    minFrequency: 80
+    maxFrequency: 800
+    correlationThreshold: 0.1
+    sampleRate: 44100
+    bufferLength: 4096
+    historySize: 10
+    useSmoothing: 1
+    enableDebugLogging: 0
+  persistAnalysisData: 1
+  cachedPitchData:
+  - timestamp: 0
+    frequency: 336.2673
+    confidence: 0.87490654
+    audioLevel: 0.06834703
+  - timestamp: 0.05
+    frequency: 341.61896
+    confidence: 0.88851845
+    audioLevel: 0.06462014
+  - timestamp: 0.1
+    frequency: 340.36395
+    confidence: 0.82653373
+    audioLevel: 0.05781613
+  - timestamp: 0.15
+    frequency: 345.5282
+    confidence: 0.7531551
+    audioLevel: 0.053646512
+  - timestamp: 0.2
+    frequency: 345.97537
+    confidence: 0.77277
+    audioLevel: 0.054537136
+  - timestamp: 0.25
+    frequency: 347.1173
+    confidence: 0.7884185
+    audioLevel: 0.05616402
+  - timestamp: 0.3
+    frequency: 353.16183
+    confidence: 0.8076991
+    audioLevel: 0.061007965
+  - timestamp: 0.35
+    frequency: 358.76593
+    confidence: 0.81004447
+    audioLevel: 0.0655574
+  - timestamp: 0.4
+    frequency: 361.17874
+    confidence: 0.8349725
+    audioLevel: 0.06535635
+  - timestamp: 0.45
+    frequency: 360.8503
+    confidence: 0.8219623
+    audioLevel: 0.06713387
+  - timestamp: 0.5
+    frequency: 360.78088
+    confidence: 0.8029333
+    audioLevel: 0.06985679
+  - timestamp: 0.55
+    frequency: 359.55496
+    confidence: 0.7801986
+    audioLevel: 0.07151052
+  - timestamp: 0.6
+    frequency: 357.53012
+    confidence: 0.753057
+    audioLevel: 0.07568934
+  - timestamp: 0.65
+    frequency: 361.85532
+    confidence: 0.8131263
+    audioLevel: 0.08660621
+  isAnalyzed: 1
+  analysisVersion: 1.0
