@@ -25,6 +25,8 @@ public class ChorusingManager : MonoBehaviour
     [Header("Audio Timing")]
     [Tooltip("Delay before starting cube movement to compensate for Unity audio start delay")]
     [SerializeField] private float initialAudioDelay = 0.5f;
+    [Tooltip("Add silence cubes equivalent to InitialAudioDelay to align visual with actual audio")]
+    [SerializeField] private bool compensateDelayWithSilence = true;
 
     [Header("Native Recording Silence")]
     [Tooltip("Requested silence duration between native recording loops (seconds)")]
@@ -183,6 +185,7 @@ public class ChorusingManager : MonoBehaviour
     }
 
     // KEPT: Quantized silence calculation (still needed for visual sync)
+    // ENHANCED: Quantized silence calculation with delay compensation
     private void CalculateQuantizedSilence()
     {
         if (currentRecording?.AudioClip == null || nativePitchData == null)
@@ -195,13 +198,23 @@ public class ChorusingManager : MonoBehaviour
         int actualAudioCubes = nativePitchData.Count;
         int requestedSilenceCubes = Mathf.RoundToInt(requestedSilenceDuration / analysisInterval);
         
+        // NEW: Add delay compensation cubes SEPARATELY
+        int delayCubes = 0;
+        if (compensateDelayWithSilence && initialAudioDelay > 0f)
+        {
+            delayCubes = Mathf.RoundToInt(initialAudioDelay / analysisInterval);
+            DebugLog($"DELAY COMPENSATION: Adding {delayCubes} delay cubes for {initialAudioDelay:F3}s");
+        }
+        
         if (requestedSilenceCubes == 0)
         {
             requestedSilenceCubes = 1;
             DebugLog("ANTI-DRIFT: Minimum 1 silence cube enforced");
         }
         
-        int totalCubes = actualAudioCubes + requestedSilenceCubes;
+        // Calculate total silence including both types
+        int totalSilenceCubes = requestedSilenceCubes + delayCubes;
+        int totalCubes = actualAudioCubes + totalSilenceCubes;
         float visualAudioTime = actualAudioCubes * analysisInterval;
         float visualTotalTime = totalCubes * analysisInterval;
         float actualSilenceNeeded = visualTotalTime - currentRecording.AudioClip.length;
@@ -211,10 +224,11 @@ public class ChorusingManager : MonoBehaviour
         {
             quantizedSilenceDuration += analysisInterval;
             totalCubes += 1;
+            totalSilenceCubes += 1;
             visualTotalTime = totalCubes * analysisInterval;
         }
         
-        DebugLog($"QUANTIZATION: Audio={actualAudioCubes} cubes, Silence={quantizedSilenceDuration:F3}s, Total={visualTotalTime:F3}s");
+        DebugLog($"QUANTIZATION: Audio={actualAudioCubes}, Requested={requestedSilenceCubes}, Delay={delayCubes}, Total={visualTotalTime:F3}s");
     }
 
     public void SetSilenceDuration(float newSilenceDuration)
@@ -359,13 +373,28 @@ public class ChorusingManager : MonoBehaviour
     public float GetInitialAudioDelay() => initialAudioDelay;
     public NativeRecording GetCurrentRecording() => currentRecording; // NEW: Public getter
 
+    // NEW: Get delay cube count for PitchVisualizer
+    public int GetDelayCubeCount()
+    {
+        if (!compensateDelayWithSilence || initialAudioDelay <= 0f)
+            return 0;
+        
+        return Mathf.RoundToInt(initialAudioDelay / analysisInterval);
+    }
+
+    // NEW: Get compensation enabled flag
+    public bool IsDelayCompensationEnabled()
+    {
+        return compensateDelayWithSilence;
+    }
+
     // Debug Methods
     private void DebugLog(string message)
     {
-        if (enableDebugLogging)
-        {
-            Debug.Log($"[ChorusingManager] {message}");
-        }
+    if (enableDebugLogging)
+    {
+        Debug.Log($"[ChorusingManager] {message}");
+    }
     }
 
     void OnDestroy()
@@ -381,4 +410,6 @@ public class ChorusingManager : MonoBehaviour
             nativeVisualizer.OnAudioLoopTrigger -= TriggerAudioLoop;
         }
     }
+
+
 }

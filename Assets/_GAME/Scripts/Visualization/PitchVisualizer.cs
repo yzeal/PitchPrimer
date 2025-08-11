@@ -106,6 +106,12 @@ public class VisualizationSettings
     public float visibleAlpha = 1f;
     [Tooltip("Transition speed between invisible and visible states")]
     public float visibilityTransitionSpeed = 5f;
+    
+    [Header("Debug Visualization")]
+    [Tooltip("Show delay compensation cubes with special coloring (for testing only)")]
+    public bool showDelayCompensationCubes = true;
+    [Tooltip("Color for delay compensation cubes")]
+    public Color delayCompensationColor = new Color(0.2f, 0.4f, 0.8f, 0.3f); // Light blue, transparent
 }
 
 // NEW: Repetition data structure
@@ -170,6 +176,10 @@ public class PitchVisualizer : MonoBehaviour
     // NEW: Static display cubes for scoring screen
     private List<GameObject> staticDisplayCubes = new List<GameObject>();
     
+    // NEW: Delay cube tracking
+    private int delayCubeCount = 0;
+    private bool delayCompensationEnabled = false;
+
     private enum CubeState
     {
         Played, Current, Future
@@ -612,23 +622,37 @@ public class PitchVisualizer : MonoBehaviour
         
         currentSilenceDuration = silenceDuration;
         
+        // NEW: Get delay cube info from ChorusingManager
+        var chorusingManager = FindFirstObjectByType<ChorusingManager>();
+        if (chorusingManager != null)
+        {
+            delayCubeCount = chorusingManager.GetDelayCubeCount();
+            delayCompensationEnabled = chorusingManager.IsDelayCompensationEnabled();
+        }
+        else
+        {
+            delayCubeCount = 0;
+            delayCompensationEnabled = false;
+        }
+        
         originalNativePitchData = new List<PitchDataPoint>(pitchDataList);
         nativeClipDuration = pitchDataList.Count > 0 ? pitchDataList[pitchDataList.Count - 1].timestamp : 0f;
         
-        // FIXED: Use externally provided silence duration
-        float silenceCubes = silenceDuration / settings.analysisInterval;
-        repetitionTotalLength = (originalNativePitchData.Count + silenceCubes) * settings.cubeSpacing;
+        // Calculate total length including delay cubes
+        float totalSilenceCubes = silenceDuration / settings.analysisInterval;
+        repetitionTotalLength = (originalNativePitchData.Count + totalSilenceCubes) * settings.cubeSpacing;
         scrollSpeed = settings.cubeSpacing / settings.analysisInterval;
         
         Debug.Log($"[PitchVisualizer] {gameObject.name} REPETITIONS SYSTEM:");
-        Debug.Log($"  Audio cubes: {originalNativePitchData.Count}, Silence cubes: {silenceCubes:F0}");
-        Debug.Log($"  Silence duration: {silenceDuration:F3}s (external)");
-        Debug.Log($"  Repetition length: {repetitionTotalLength:F1} units, Total repetitions: {settings.nativeRepetitions}");
+        Debug.Log($"  Audio cubes: {originalNativePitchData.Count}, Total silence cubes: {totalSilenceCubes:F0}");
+        Debug.Log($"  Delay cubes: {delayCubeCount}, Regular silence: {totalSilenceCubes - delayCubeCount:F0}");
+        Debug.Log($"  Delay compensation: {(delayCompensationEnabled ? "ENABLED" : "DISABLED")}");
+        Debug.Log($"  Repetition length: {repetitionTotalLength:F1} units");
         
         ClearNativeRepetitions();
         CreateInitialRepetitions(silenceDuration);
         
-        // Reset audio trigger tracking (only for loops)
+        // Reset audio trigger tracking
         ResetAudioTriggers();
         
         lastPlaybackTime = 0f;
@@ -663,7 +687,27 @@ public class PitchVisualizer : MonoBehaviour
     {
         var repetition = new RepetitionData(startPosition, repetitionIndex);
         
-        // Create audio cubes (unchanged)
+        // NEW: Create delay cubes FIRST (if compensation enabled)
+        if (delayCompensationEnabled && delayCubeCount > 0)
+        {
+            for (int d = 0; d < delayCubeCount; d++)
+            {
+                var delaySilenceData = new PitchDataPoint(0f, 0f, 0f, 0f);
+                GameObject delayCube = CreateCube(delaySilenceData, true, -2); // Special index for delay cubes
+                
+                if (delayCube != null)
+                {
+                    float cubeX = startPosition + (d * settings.cubeSpacing);
+                    Vector3 pos = new Vector3(cubeX, 0, 0) + settings.trackOffset;
+                    delayCube.transform.localPosition = pos;
+                    
+                    repetition.cubes.Add(delayCube);
+                }
+            }
+        }
+        
+        // Create audio cubes (offset by delay cubes if enabled)
+        int audioOffset = delayCompensationEnabled ? delayCubeCount : 0;
         for (int i = 0; i < originalNativePitchData.Count; i++)
         {
             var pitchData = originalNativePitchData[i];
@@ -671,7 +715,7 @@ public class PitchVisualizer : MonoBehaviour
             
             if (cube != null)
             {
-                float cubeX = startPosition + (i * settings.cubeSpacing);
+                float cubeX = startPosition + ((audioOffset + i) * settings.cubeSpacing);
                 Vector3 pos = new Vector3(cubeX, 0, 0) + settings.trackOffset;
                 cube.transform.localPosition = pos;
                 
@@ -680,16 +724,21 @@ public class PitchVisualizer : MonoBehaviour
             }
         }
         
-        // FIXED: Create silence cubes using external silence duration
-        int silenceCubeCount = Mathf.RoundToInt(silenceDuration / settings.analysisInterval);
-        for (int s = 0; s < silenceCubeCount; s++)
+        // Create regular silence cubes (after audio cubes)
+        int regularSilenceCubes = Mathf.RoundToInt(silenceDuration / settings.analysisInterval);
+        if (delayCompensationEnabled)
+        {
+            regularSilenceCubes -= delayCubeCount; // Subtract delay cubes from total
+        }
+        
+        for (int s = 0; s < regularSilenceCubes; s++)
         {
             var silencePitchData = new PitchDataPoint(0f, 0f, 0f, 0f);
             GameObject silenceCube = CreateCube(silencePitchData, true, -1);
             
             if (silenceCube != null)
             {
-                float cubeX = startPosition + ((originalNativePitchData.Count + s) * settings.cubeSpacing);
+                float cubeX = startPosition + ((audioOffset + originalNativePitchData.Count + s) * settings.cubeSpacing);
                 Vector3 pos = new Vector3(cubeX, 0, 0) + settings.trackOffset;
                 silenceCube.transform.localPosition = pos;
                 
@@ -698,63 +747,20 @@ public class PitchVisualizer : MonoBehaviour
         }
         
         activeRepetitions.Add(repetition);
+        
+        DebugLog($"Created repetition {repetitionIndex}: {(delayCompensationEnabled ? delayCubeCount : 0)} delay + {originalNativePitchData.Count} audio + {regularSilenceCubes} silence cubes");
     }
     
-    public void UpdateNativeTrackPlayback(float playbackTime, List<PitchDataPoint> pitchDataList)
-    {
-        EnsureInitialization();
-        
-        if (activeRepetitions == null || originalNativePitchData == null) return;
-        
-        float loopedPlaybackTime = nativeClipDuration > 0 ? playbackTime % nativeClipDuration : playbackTime;
-        
-        float deltaTime = loopedPlaybackTime - lastPlaybackTime;
-        if (deltaTime < 0) deltaTime += nativeClipDuration;
-        
-        if (deltaTime >= settings.analysisInterval)
-        {
-            ScrollAllRepetitions();
-            ManageRepetitions();
-            UpdateAllRepetitionStates(loopedPlaybackTime);
-            
-            lastPlaybackTime = loopedPlaybackTime;
-        }
-    }
-    
-    private void ScrollAllRepetitions()
-    {
-        float scrollDistance = settings.cubeSpacing;
-        
-        foreach (var repetition in activeRepetitions)
-        {
-            repetition.startPosition -= scrollDistance;
-            
-            foreach (var cube in repetition.cubes)
-            {
-                if (cube != null)
-                {
-                    Vector3 pos = cube.transform.localPosition;
-                    pos.x -= scrollDistance;
-                    cube.transform.localPosition = pos;
-                }
-            }
-        }
-        
-        // Update total elapsed and check for audio triggers (only loops)
-        totalElapsedCubes += 1f; // One cube scrolled
-        CheckForLoopTriggers();
-    }
-    
-    // Check for loop triggers only (no initial trigger)
+    // ENHANCED: Event trigger logic with delay compensation
     private void CheckForLoopTriggers()
     {
-        if (!isNativeTrack) return; // Only for native tracks
+        if (!isNativeTrack) return;
         
-        // Calculate cubes per loop
         float cubesPerLoop = repetitionTotalLength / settings.cubeSpacing;
         
-        // Calculate which loop we're approaching (considering the offset)
-        float adjustedCubes = totalElapsedCubes + settings.loopAudioTriggerOffset;
+        // NEW: Adjust trigger point based on delay cubes (if compensation enabled)
+        float triggerAdjustment = (delayCompensationEnabled && delayCubeCount > 0) ? delayCubeCount : 0f;
+        float adjustedCubes = totalElapsedCubes + settings.loopAudioTriggerOffset + triggerAdjustment;
         int approachingLoop = Mathf.FloorToInt(adjustedCubes / cubesPerLoop);
         
         // Trigger if we haven't triggered this loop yet and it's not the initial loop
@@ -762,7 +768,7 @@ public class PitchVisualizer : MonoBehaviour
         {
             triggeredLoops.Add(approachingLoop);
             OnAudioLoopTrigger?.Invoke();
-            Debug.Log($"[PitchVisualizer] {gameObject.name} Loop {approachingLoop} triggered at {totalElapsedCubes:F1} cubes (adjusted: {adjustedCubes:F1})");
+            Debug.Log($"[PitchVisualizer] {gameObject.name} Loop {approachingLoop} triggered at {totalElapsedCubes:F1} cubes (adjusted: {adjustedCubes:F1}, delay offset: {triggerAdjustment})");
         }
     }
     
@@ -1019,14 +1025,29 @@ public class PitchVisualizer : MonoBehaviour
         newCube.transform.localScale = scale;
         
         // Apply colors and visibility
-        if (!isPreRendered)
+        var renderer = newCube.GetComponent<Renderer>();
+        if (renderer != null)
         {
-            var renderer = newCube.GetComponent<Renderer>();
-            if (renderer != null)
+            Color cubeColor;
+            
+            // NEW: Special handling for delay cubes (testing visualization)
+            if (index == -2 && settings.showDelayCompensationCubes)
             {
-                renderer.material.color = GetCubeColor(pitchData);
+                cubeColor = settings.delayCompensationColor;
                 
-                // NEW: Apply initial visibility for user cubes
+                // Optional: Add name for easier identification in hierarchy
+                newCube.name = $"DelayCube_{Time.time:F1}";
+            }
+            else
+            {
+                cubeColor = GetCubeColor(pitchData);
+            }
+            
+            renderer.material.color = cubeColor;
+            
+            // Apply initial visibility for user cubes
+            if (!isPreRendered)
+            {
                 ApplyInitialVisibility(newCube);
             }
         }
@@ -1159,5 +1180,58 @@ public class PitchVisualizer : MonoBehaviour
         ValidateSettings();
         UpdateFocalPoint();
         CreateFocalIndicator();
+    }
+
+    // ADD: Missing UpdateNativeTrackPlayback method
+    public void UpdateNativeTrackPlayback(float playbackTime, List<PitchDataPoint> pitchDataList)
+    {
+        EnsureInitialization();
+        
+        if (activeRepetitions == null || originalNativePitchData == null) return;
+        
+        float loopedPlaybackTime = nativeClipDuration > 0 ? playbackTime % nativeClipDuration : playbackTime;
+        
+        float deltaTime = loopedPlaybackTime - lastPlaybackTime;
+        if (deltaTime < 0) deltaTime += nativeClipDuration;
+        
+        if (deltaTime >= settings.analysisInterval)
+        {
+            ScrollAllRepetitions();
+            ManageRepetitions();
+            UpdateAllRepetitionStates(loopedPlaybackTime);
+            
+            lastPlaybackTime = loopedPlaybackTime;
+        }
+    }
+
+    // ADD: Missing ScrollAllRepetitions method
+    private void ScrollAllRepetitions()
+    {
+        float scrollDistance = settings.cubeSpacing;
+        
+        foreach (var repetition in activeRepetitions)
+        {
+            repetition.startPosition -= scrollDistance;
+            
+            foreach (var cube in repetition.cubes)
+            {
+                if (cube != null)
+                {
+                    Vector3 pos = cube.transform.localPosition;
+                    pos.x -= scrollDistance;
+                    cube.transform.localPosition = pos;
+                }
+            }
+        }
+        
+        // Update total elapsed and check for audio triggers (only loops)
+        totalElapsedCubes += 1f; // One cube scrolled
+        CheckForLoopTriggers();
+    }
+
+    // ADD: Missing DebugLog method
+    private void DebugLog(string message)
+    {
+        Debug.Log($"[PitchVisualizer] {gameObject.name}: {message}");
     }
 }
