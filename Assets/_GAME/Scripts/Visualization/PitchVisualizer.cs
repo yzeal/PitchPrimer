@@ -646,11 +646,14 @@ public class PitchVisualizer : MonoBehaviour
         repetitionTotalLength = (originalNativePitchData.Count + totalSilenceCubes) * settings.cubeSpacing;
         scrollSpeed = settings.cubeSpacing / settings.analysisInterval;
         
-        Debug.Log($"[PitchVisualizer] {gameObject.name} REPETITIONS SYSTEM:");
-        Debug.Log($"  Audio cubes: {originalNativePitchData.Count}, Total silence cubes: {totalSilenceCubes:F0}");
-        Debug.Log($"  Initial delay cubes: {initialDelayCubeCount}, Loop delay cubes: {loopDelayCubeCount}");
-        Debug.Log($"  Delay compensation: {(delayCompensationEnabled ? "ENABLED" : "DISABLED")}");
-        Debug.Log($"  Repetition length: {repetitionTotalLength:F1} units");
+        // ENHANCED DEBUG: Show repetition length calculation
+        Debug.Log($"[PitchVisualizer] REPETITION LENGTH DEBUG:");
+        Debug.Log($"  originalNativePitchData.Count: {originalNativePitchData.Count}");
+        Debug.Log($"  totalSilenceCubes: {totalSilenceCubes:F1}");
+        Debug.Log($"  maxDelayCubes: {maxDelayCubes}");
+        Debug.Log($"  settings.cubeSpacing: {settings.cubeSpacing:F3}");
+        Debug.Log($"  repetitionTotalLength: {repetitionTotalLength:F1} units");
+        Debug.Log($"  Expected cube counts: Rep0={originalNativePitchData.Count + totalSilenceCubes + initialDelayCubeCount}, Rep1+={originalNativePitchData.Count + totalSilenceCubes + loopDelayCubeCount}");
         
         ClearNativeRepetitions();
         CreateInitialRepetitions(silenceDuration);
