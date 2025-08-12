@@ -2,6 +2,34 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
+// ============================================================================
+// AUDIO TRIGGER SYSTEM DOCUMENTATION
+// ============================================================================
+// 
+// CRITICAL: Audio triggers IMMEDIATELY when delay cubes reach the focal point!
+// The "delay" is for VISUAL compensation only, NOT for audio timing.
+//
+// EVENT FLOW:
+// 1. Loop 0 (Initial): Audio triggers when FIRST delay cube reaches focal point
+//    - At totalElapsedCubes = 0 (immediate start)
+//    - If no initial delay: triggers when first audio cube reaches focal point
+//
+// 2. Loop 1+ (Subsequent): Audio triggers when FIRST loop delay cube reaches focal point  
+//    - After silence period of previous repetition ends
+//    - If no loop delay: triggers when first audio cube of new repetition reaches focal point
+//
+// DELAY CUBE PURPOSE:
+// - Initial Delay Cubes: Compensate Unity audio start latency (visual sync)
+// - Loop Delay Cubes: Compensate Unity audio loop latency (visual sync)
+// - These cubes ensure audio and visuals stay synchronized
+// - Audio itself starts IMMEDIATELY without additional delay
+//
+// TRIGGER TIMING:
+// - Audio triggers when relevant cubes ARRIVE at focal point
+// - NOT after they pass through or finish
+// - The delay compensation is built into the visual timeline
+// ============================================================================
+
 // COPILOT CONTEXT: Modular visualization system for pitch data
 // Supports both real-time and pre-rendered visualizations
 // Designed for chorusing with dual-track display
