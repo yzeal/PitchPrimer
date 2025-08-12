@@ -1031,9 +1031,10 @@ public class PitchVisualizer : MonoBehaviour
         
         foreach (var repetition in activeRepetitions)
         {
-            for (int i = 0; i < repetition.cubes.Count && i < originalNativePitchData.Count; i++)
+            // FIXED: Process ALL cubes in the repetition, not just the first N
+            for (int cubeListIndex = 0; cubeListIndex < repetition.cubes.Count; cubeListIndex++)
             {
-                var cube = repetition.cubes[i];
+                var cube = repetition.cubes[cubeListIndex];
                 if (cube == null) continue;
                 
                 float cubeLocalX = cube.transform.localPosition.x - settings.trackOffset.x;
@@ -1053,9 +1054,38 @@ public class PitchVisualizer : MonoBehaviour
                     state = CubeState.Future;
                 }
                 
-                SetNativeCubeStateByType(cube, i, state);
+                // FIXED: Determine the correct data index for this cube
+                int dataIndex = GetDataIndexForCube(cubeListIndex, repetition.repetitionIndex);
+                
+                SetNativeCubeStateByType(cube, dataIndex, state);
             }
         }
+    }
+    
+    // NEW: Helper method to get correct data index for cube based on its position in the list
+    private int GetDataIndexForCube(int cubeListIndex, int repetitionIndex)
+    {
+        // Get delay cube count for this repetition
+        int delayCubeCount = GetActualDelayCubes(repetitionIndex);
+        
+        // If this cube is a delay cube, return -2 (special index for delay cubes)
+        if (delayCompensationEnabled && cubeListIndex < delayCubeCount)
+        {
+            return -2; // Delay cube
+        }
+        
+        // If this cube is an audio cube, calculate its audio data index
+        int audioCubeStart = delayCompensationEnabled ? delayCubeCount : 0;
+        int audioCubeEnd = audioCubeStart + (originalNativePitchData?.Count ?? 0);
+        
+        if (cubeListIndex >= audioCubeStart && cubeListIndex < audioCubeEnd)
+        {
+            // Audio cube - return its index in the original pitch data
+            return cubeListIndex - audioCubeStart;
+        }
+        
+        // Must be a silence cube
+        return -1; // Silence cube
     }
     
     private void SetNativeCubeStateByType(GameObject cube, int dataIndex, CubeState state)

@@ -5268,7 +5268,7 @@ MonoBehaviour:
     enableDebugLogging: 0
   analysisInterval: 0.05
   initialAudioDelay: 0.3
-  loopAudioDelay: 0
+  loopAudioDelay: 0.3
   compensateDelayWithSilence: 1
   requestedSilenceDuration: 0.6
   quantizedSilenceDuration: 0.05
