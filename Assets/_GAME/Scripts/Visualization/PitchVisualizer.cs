@@ -2,34 +2,6 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
-// ============================================================================
-// AUDIO TRIGGER SYSTEM DOCUMENTATION
-// ============================================================================
-// 
-// CRITICAL: Audio triggers IMMEDIATELY when delay cubes reach the focal point!
-// The "delay" is for VISUAL compensation only, NOT for audio timing.
-//
-// EVENT FLOW:
-// 1. Loop 0 (Initial): Audio triggers when FIRST delay cube reaches focal point
-//    - At totalElapsedCubes = 0 (immediate start)
-//    - If no initial delay: triggers when first audio cube reaches focal point
-//
-// 2. Loop 1+ (Subsequent): Audio triggers when FIRST loop delay cube reaches focal point  
-//    - After silence period of previous repetition ends
-//    - If no loop delay: triggers when first audio cube of new repetition reaches focal point
-//
-// DELAY CUBE PURPOSE:
-// - Initial Delay Cubes: Compensate Unity audio start latency (visual sync)
-// - Loop Delay Cubes: Compensate Unity audio loop latency (visual sync)
-// - These cubes ensure audio and visuals stay synchronized
-// - Audio itself starts IMMEDIATELY without additional delay
-//
-// TRIGGER TIMING:
-// - Audio triggers when relevant cubes ARRIVE at focal point
-// - NOT after they pass through or finish
-// - The delay compensation is built into the visual timeline
-// ============================================================================
-
 // COPILOT CONTEXT: Modular visualization system for pitch data
 // Supports both real-time and pre-rendered visualizations
 // Designed for chorusing with dual-track display
@@ -186,10 +158,9 @@ public class PitchVisualizer : MonoBehaviour
     private GameObject focalIndicator;
     private float focalPointLocalX = 0f;
     
-    // Audio trigger tracking 
-    // IMPORTANT: These track when to trigger audio for visual synchronization
+    // Audio trigger tracking (only for loops now)
     private HashSet<int> triggeredLoops = new HashSet<int>();
-    private float totalElapsedCubes = 0f; // Track visual scrolling progress
+    private float totalElapsedCubes = 0f; // Track scrolling progress
     
     // FIXED: Add missing variable for legacy compatibility
     private int currentPlaybackIndex = 0;
@@ -204,10 +175,9 @@ public class PitchVisualizer : MonoBehaviour
     // NEW: Static display cubes for scoring screen
     private List<GameObject> staticDisplayCubes = new List<GameObject>();
     
-    // Delay cube tracking
-    // CRITICAL: These are for VISUAL compensation, not audio delay!
-    private int initialDelayCubeCount = 0;    // Compensates Unity audio start latency
-    private int loopDelayCubeCount = 0;       // Compensates Unity audio loop latency  
+    // NEW: Delay cube tracking
+    private int initialDelayCubeCount = 0;
+    private int loopDelayCubeCount = 0;
     private bool delayCompensationEnabled = false;
 
     private enum CubeState
@@ -754,12 +724,10 @@ public class PitchVisualizer : MonoBehaviour
     {
         var repetition = new RepetitionData(startPosition, repetitionIndex);
         
-        // Use different delay cube counts based on repetition type
+        // NEW: Use different delay cube counts based on repetition type
         int delayCubeCount = (repetitionIndex == 0) ? initialDelayCubeCount : loopDelayCubeCount;
         
-        // VISUAL COMPENSATION: Create delay cubes FIRST (if compensation enabled)
-        // These cubes provide visual timing to match audio start/loop delays
-        // Audio will trigger when these cubes reach the focal point
+        // Create delay cubes FIRST (if compensation enabled)
         if (delayCompensationEnabled && delayCubeCount > 0)
         {
             for (int d = 0; d < delayCubeCount; d++)
@@ -847,100 +815,53 @@ public class PitchVisualizer : MonoBehaviour
         DebugLog($"Created repetition {repetitionIndex}: {delayCubeCount} {delayType} delay + {originalNativePitchData.Count} audio + {regularSilenceCubes} silence cubes");
     }
     
-    // ============================================================================
-    // AUDIO TRIGGER LOGIC
-    // ============================================================================
-    // CRITICAL: Audio triggers when delay cubes (or first audio cube if no delay)
-    // reach the focal point. This provides immediate audio start with visual sync.
-    // ============================================================================
+    // ENHANCED: Event trigger logic mit ausführlichem Debug-Logging
     private void CheckForLoopTriggers()
     {
         if (!isNativeTrack) return;
         
-        // Calculate which loop we should be approaching based on elapsed visual time
-        int approachingLoop = GetApproachingLoopNumber(totalElapsedCubes);
+        float cubesPerLoop = repetitionTotalLength / settings.cubeSpacing;
         
-        // Calculate when this specific loop should trigger
-        float targetTriggerPoint = CalculateTriggerPointForLoop(approachingLoop);
+        // CALCULATE: Welcher echte Loop basierend auf totalElapsedCubes
+        int actualLoopNumber = Mathf.FloorToInt(totalElapsedCubes / cubesPerLoop);
         
-        // ENHANCED DEBUG - Every cube for detailed analysis
-        if (totalElapsedCubes > 0 && Mathf.FloorToInt(totalElapsedCubes) % 5 == 0) // Every 5 cubes
+        // NEW: Dynamic delay adjustment based on loop type
+        float triggerAdjustment = 0f;
+        if (delayCompensationEnabled)
         {
-            Debug.Log($"?? TRIGGER DEBUG (Cube {totalElapsedCubes:F1}):");
-            Debug.Log($"  approachingLoop: {approachingLoop}");
-            Debug.Log($"  targetTriggerPoint for Loop {approachingLoop}: {targetTriggerPoint:F1}");
+            // Use different delays for initial vs loops
+            triggerAdjustment = (actualLoopNumber == 0) ? initialDelayCubeCount : loopDelayCubeCount;
+        }
+        
+        float adjustedCubes = totalElapsedCubes + triggerAdjustment;
+        int finalApproachingLoop = Mathf.FloorToInt(adjustedCubes / cubesPerLoop);
+        
+        // ENHANCED DEBUG - Log EVERY call for debugging
+        if (totalElapsedCubes > 0 && Mathf.FloorToInt(totalElapsedCubes) % 10 == 0) // Every 10 cubes
+        {
+            Debug.Log($"[PitchVisualizer] TRIGGER DEBUG:");
             Debug.Log($"  totalElapsedCubes: {totalElapsedCubes:F1}");
-            Debug.Log($"  Should trigger? {totalElapsedCubes >= targetTriggerPoint && !triggeredLoops.Contains(approachingLoop)}");
+            Debug.Log($"  cubesPerLoop: {cubesPerLoop:F1}");
+            Debug.Log($"  actualLoopNumber: {actualLoopNumber}");
+            Debug.Log($"  triggerAdjustment: {triggerAdjustment} (using {(actualLoopNumber == 0 ? "INITIAL" : "LOOP")} delay)");
+            Debug.Log($"  adjustedCubes: {adjustedCubes:F1}");
+            Debug.Log($"  finalApproachingLoop: {finalApproachingLoop}");
             Debug.Log($"  triggeredLoops: [{string.Join(", ", triggeredLoops)}]");
         }
         
-        // AUDIO TIMING: Check if we've reached the trigger point for this loop
-        // This happens when the first delay cube (or first audio cube) reaches focal point
-        if (totalElapsedCubes >= targetTriggerPoint && !triggeredLoops.Contains(approachingLoop))
+        // Trigger for BOTH initial and loops
+        if (finalApproachingLoop >= 0 && !triggeredLoops.Contains(finalApproachingLoop))
         {
-            triggeredLoops.Add(approachingLoop);
-            
-            // IMMEDIATE AUDIO START: No additional delay, audio plays now!
+            triggeredLoops.Add(finalApproachingLoop);
             OnAudioLoopTrigger?.Invoke();
             
-            string eventType = approachingLoop == 0 ? "INITIAL" : $"LOOP {approachingLoop}";
-            Debug.Log($"?? [PitchVisualizer] *** {gameObject.name} {eventType} AUDIO TRIGGERED ***");
-            Debug.Log($"  IMMEDIATE START: Audio plays now at totalElapsedCubes: {totalElapsedCubes:F1}");
-            Debug.Log($"  Target trigger point was: {targetTriggerPoint:F1}");
-            Debug.Log($"  Visual compensation ensures sync with scrolling cubes");
+            string eventType = finalApproachingLoop == 0 ? "INITIAL" : $"LOOP {finalApproachingLoop}";
+            Debug.Log($"[PitchVisualizer] *** {gameObject.name} {eventType} AUDIO TRIGGERED ***");
+            Debug.Log($"  At totalElapsedCubes: {totalElapsedCubes:F1}");
+            Debug.Log($"  Using delay type: {(actualLoopNumber == 0 ? "INITIAL" : "LOOP")}");
+            Debug.Log($"  Delay offset: {triggerAdjustment}");
+            Debug.Log($"  adjustedCubes: {adjustedCubes:F1}");
         }
-    }
-    
-    // Calculate when a specific loop number should trigger audio
-    // TIMING: Audio triggers when first relevant cube reaches focal point
-    private float CalculateTriggerPointForLoop(int loopNumber)
-    {
-        if (loopNumber == 0)
-        {
-            // LOOP 0 (Initial): Trigger immediately when visualization starts
-            // If delay compensation enabled: trigger when first delay cube reaches focal point (cube 0)
-            // If no delay compensation: trigger when first audio cube reaches focal point (cube 0)
-            return 0f; // Immediate trigger at start
-        }
-        else
-        {
-            // LOOP 1+ (Subsequent): Trigger at start of new repetition
-            // This happens after the previous repetition's silence period ends
-            float rep0Length = GetRepetitionLength(0);
-            float rep1PlusLength = GetRepetitionLength(1);
-            
-            // Audio triggers when the new repetition's first cube reaches focal point
-            return rep0Length + ((loopNumber - 1) * rep1PlusLength);
-        }
-    }
-    
-    // Get the actual length of a repetition in cube spacing units
-    // COMPOSITION: delay cubes + audio cubes + silence cubes
-    private float GetRepetitionLength(int repetitionIndex)
-    {
-        int delayCubes = (repetitionIndex == 0) ? initialDelayCubeCount : loopDelayCubeCount;
-        int silenceCubes = Mathf.RoundToInt(currentSilenceDuration / settings.analysisInterval);
-        int totalCubes = delayCubes + originalNativePitchData.Count + silenceCubes;
-        
-        return totalCubes * settings.cubeSpacing;
-    }
-    
-    // Determine which loop number we're approaching based on visual progress
-    // CALCULATION: Based on how many cubes have scrolled past the focal point
-    private int GetApproachingLoopNumber(float elapsedCubes)
-    {
-        float rep0Length = GetRepetitionLength(0);
-        
-        if (elapsedCubes < rep0Length)
-        {
-            return 0; // Still in first repetition
-        }
-        
-        // After first repetition, calculate based on uniform rep1+ lengths
-        float remainingCubes = elapsedCubes - rep0Length;
-        float rep1PlusLength = GetRepetitionLength(1);
-        
-        return 1 + Mathf.FloorToInt(remainingCubes / rep1PlusLength);
     }
     
     private void ManageRepetitions()
