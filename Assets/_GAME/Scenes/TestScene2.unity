@@ -5267,7 +5267,7 @@ MonoBehaviour:
     useSmoothing: 1
     enableDebugLogging: 0
   analysisInterval: 0.05
-  initialAudioDelay: 0.6
+  initialAudioDelay: 0.3
   loopAudioDelay: 0
   compensateDelayWithSilence: 1
   requestedSilenceDuration: 0.6
@@ -5544,7 +5544,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -239.38916, y: 0}
+  m_AnchoredPosition: {x: -239.38913, y: 0}
   m_SizeDelta: {x: -478.778, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1198317820

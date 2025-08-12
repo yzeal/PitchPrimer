@@ -843,53 +843,134 @@ public class PitchVisualizer : MonoBehaviour
         DebugLog($"Created repetition {repetitionIndex}: {delayCubeCount} {delayType} delay + {originalNativePitchData.Count} audio + {regularSilenceCubes} silence cubes");
     }
     
-    // ENHANCED: Event trigger logic mit ausführlichem Debug-Logging
+    // ============================================================================
+    // AUDIO TRIGGER LOGIC - FINAL FIX
+    // ============================================================================
+    // CRITICAL: Must match EXACTLY what CreateSingleRepetition() actually creates!
+    // ============================================================================
     private void CheckForLoopTriggers()
     {
         if (!isNativeTrack) return;
         
-        float cubesPerLoop = repetitionTotalLength / settings.cubeSpacing;
+        // Calculate which loop we should be approaching based on elapsed visual time
+        int approachingLoop = GetApproachingLoopNumber(totalElapsedCubes);
         
-        // CALCULATE: Welcher echte Loop basierend auf totalElapsedCubes
-        int actualLoopNumber = Mathf.FloorToInt(totalElapsedCubes / cubesPerLoop);
+        // Calculate when this specific loop should trigger
+        float targetTriggerPoint = CalculateTriggerPointForLoop(approachingLoop);
         
-        // NEW: Dynamic delay adjustment based on loop type
-        float triggerAdjustment = 0f;
-        if (delayCompensationEnabled)
-        {
-            // Use different delays for initial vs loops
-            triggerAdjustment = (actualLoopNumber == 0) ? initialDelayCubeCount : loopDelayCubeCount;
-        }
-        
-        float adjustedCubes = totalElapsedCubes + triggerAdjustment;
-        int finalApproachingLoop = Mathf.FloorToInt(adjustedCubes / cubesPerLoop);
-        
-        // ENHANCED DEBUG - Log EVERY call for debugging
+        // DEBUG: Show trigger calculation details (reduced frequency)
         if (totalElapsedCubes > 0 && Mathf.FloorToInt(totalElapsedCubes) % 10 == 0) // Every 10 cubes
         {
-            Debug.Log($"[PitchVisualizer] TRIGGER DEBUG:");
+            Debug.Log($"?? TRIGGER DEBUG (Cube {totalElapsedCubes:F1}):");
+            Debug.Log($"  approachingLoop: {approachingLoop}");
+            Debug.Log($"  targetTriggerPoint for Loop {approachingLoop}: {targetTriggerPoint:F1}");
             Debug.Log($"  totalElapsedCubes: {totalElapsedCubes:F1}");
-            Debug.Log($"  cubesPerLoop: {cubesPerLoop:F1}");
-            Debug.Log($"  actualLoopNumber: {actualLoopNumber}");
-            Debug.Log($"  triggerAdjustment: {triggerAdjustment} (using {(actualLoopNumber == 0 ? "INITIAL" : "LOOP")} delay)");
-            Debug.Log($"  adjustedCubes: {adjustedCubes:F1}");
-            Debug.Log($"  finalApproachingLoop: {finalApproachingLoop}");
+            Debug.Log($"  Should trigger? {totalElapsedCubes >= targetTriggerPoint && !triggeredLoops.Contains(approachingLoop)}");
             Debug.Log($"  triggeredLoops: [{string.Join(", ", triggeredLoops)}]");
+            
+            // ENHANCED: Show what's actually being created
+            Debug.Log($"  ACTUAL CUBE COMPOSITION:");
+            Debug.Log($"    Loop 0: {GetActualDelayCubes(0)} delay + {originalNativePitchData?.Count ?? 0} audio + {GetActualSilenceCubes()} silence = {GetActualRepetitionCubes(0)} total cubes");
+            Debug.Log($"    Loop 1+: {GetActualDelayCubes(1)} delay + {originalNativePitchData?.Count ?? 0} audio + {GetActualSilenceCubes()} silence = {GetActualRepetitionCubes(1)} total cubes");
         }
         
-        // Trigger for BOTH initial and loops
-        if (finalApproachingLoop >= 0 && !triggeredLoops.Contains(finalApproachingLoop))
+        // FIXED: Audio triggers when first relevant cube reaches focal point
+        if (totalElapsedCubes >= targetTriggerPoint && !triggeredLoops.Contains(approachingLoop))
         {
-            triggeredLoops.Add(finalApproachingLoop);
+            triggeredLoops.Add(approachingLoop);
+            
+            // IMMEDIATE AUDIO START: No additional delay, audio plays now!
             OnAudioLoopTrigger?.Invoke();
             
-            string eventType = finalApproachingLoop == 0 ? "INITIAL" : $"LOOP {finalApproachingLoop}";
-            Debug.Log($"[PitchVisualizer] *** {gameObject.name} {eventType} AUDIO TRIGGERED ***");
-            Debug.Log($"  At totalElapsedCubes: {totalElapsedCubes:F1}");
-            Debug.Log($"  Using delay type: {(actualLoopNumber == 0 ? "INITIAL" : "LOOP")}");
-            Debug.Log($"  Delay offset: {triggerAdjustment}");
-            Debug.Log($"  adjustedCubes: {adjustedCubes:F1}");
+            string eventType = approachingLoop == 0 ? "INITIAL" : $"LOOP {approachingLoop}";
+            Debug.Log($"?? [PitchVisualizer] *** {gameObject.name} {eventType} AUDIO TRIGGERED ***");
+            Debug.Log($"  IMMEDIATE START: Audio plays now at totalElapsedCubes: {totalElapsedCubes:F1}");
+            Debug.Log($"  Target trigger point was: {targetTriggerPoint:F1}");
+            Debug.Log($"  Using delay type: {(approachingLoop == 0 ? "INITIAL" : "LOOP")}");
+            Debug.Log($"  Visual compensation ensures sync with scrolling cubes");
         }
+    }
+
+    // FIXED: Calculate trigger points based on ACTUAL cube creation
+    private float CalculateTriggerPointForLoop(int loopNumber)
+    {
+        if (loopNumber == 0)
+        {
+            // LOOP 0 (Initial): Trigger immediately when visualization starts
+            return 0f; // Immediate trigger at start
+        }
+        else
+        {
+            // LOOP 1+ (Subsequent): Calculate cumulative length based on ACTUAL cube counts
+            
+            // Start with ACTUAL Loop 0 length
+            float cumulativeLength = GetActualRepetitionCubes(0) * settings.cubeSpacing;
+            
+            // Add ACTUAL lengths for Loop 1 through (loopNumber-1)
+            if (loopNumber > 1)
+            {
+                float rep1PlusLength = GetActualRepetitionCubes(1) * settings.cubeSpacing;
+                cumulativeLength += (loopNumber - 1) * rep1PlusLength;
+            }
+            
+            return cumulativeLength;
+        }
+    }
+
+    // NEW: Get ACTUAL delay cubes for specific repetition (matches CreateSingleRepetition exactly)
+    private int GetActualDelayCubes(int repetitionIndex)
+    {
+        if (!delayCompensationEnabled) return 0;
+        return (repetitionIndex == 0) ? initialDelayCubeCount : loopDelayCubeCount;
+    }
+
+    // NEW: Get ACTUAL silence cubes (matches CreateSingleRepetition exactly)
+    private int GetActualSilenceCubes()
+    {
+        return Mathf.RoundToInt(currentSilenceDuration / settings.analysisInterval);
+    }
+
+    // NEW: Get ACTUAL total cubes for specific repetition (matches CreateSingleRepetition exactly)
+    private int GetActualRepetitionCubes(int repetitionIndex)
+    {
+        int delayCubes = GetActualDelayCubes(repetitionIndex);
+        int audioCubes = originalNativePitchData?.Count ?? 0;
+        int silenceCubes = GetActualSilenceCubes();
+        
+        return delayCubes + audioCubes + silenceCubes;
+    }
+    
+    // UPDATED: Use actual cube counts (keep for compatibility but delegate to actual methods)
+    private float GetRepetitionLength(int repetitionIndex)
+    {
+        return GetActualRepetitionCubes(repetitionIndex) * settings.cubeSpacing;
+    }
+    
+    // FIXED: Use actual cube counts for loop determination
+    private int GetApproachingLoopNumber(float elapsedCubes)
+    {
+        // Check if we're still in Loop 0 (which has different length)
+        float rep0LengthInCubes = GetActualRepetitionCubes(0);
+        
+        if (elapsedCubes < rep0LengthInCubes)
+        {
+            return 0; // Still in first repetition
+        }
+        
+        // We're past Loop 0, now calculate which subsequent loop we're in
+        float remainingCubes = elapsedCubes - rep0LengthInCubes;
+        float rep1PlusLengthInCubes = GetActualRepetitionCubes(1);
+        
+        if (rep1PlusLengthInCubes <= 0)
+        {
+            Debug.LogWarning($"[PitchVisualizer] Invalid rep1PlusLengthInCubes: {rep1PlusLengthInCubes}");
+            return 1; // Fallback
+        }
+        
+        // Loop 1, 2, 3, etc. all have uniform rep1PlusLengthInCubes
+        int subsequentLoopNumber = Mathf.FloorToInt(remainingCubes / rep1PlusLengthInCubes);
+        
+        return 1 + subsequentLoopNumber;
     }
     
     private void ManageRepetitions()
