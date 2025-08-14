@@ -418,5 +418,55 @@ public class ChorusingManager : MonoBehaviour
         }
     }
 
+    // NEW: Restart method for applying delay changes
+    public void RestartChorusing()
+    {
+        if (!isChorusingActive)
+        {
+            DebugLog("?? Cannot restart - chorusing is not active");
+            return;
+        }
+        
+        DebugLog("?? Restarting chorusing to apply new delay values...");
+        
+        // Stop current session
+        StopChorusing();
+        
+        // Brief pause to ensure clean state
+        // Note: In editor this is synchronous, in build we might need coroutine
+        System.Threading.Thread.Sleep(100);
+        
+        // Restart with new values
+        StartChorusing();
+        
+        DebugLog("? Chorusing restarted with updated delay values");
+    }
 
+    // NEW: Alternative coroutine version for runtime use
+    public void RestartChorusingAsync()
+    {
+        if (!isChorusingActive)
+        {
+            DebugLog("?? Cannot restart - chorusing is not active");
+            return;
+        }
+        
+        StartCoroutine(RestartChorusingCoroutine());
+    }
+
+    private System.Collections.IEnumerator RestartChorusingCoroutine()
+    {
+        DebugLog("?? Restarting chorusing to apply new delay values...");
+        
+        // Stop current session
+        StopChorusing();
+        
+        // Wait one frame for clean state
+        yield return null;
+        
+        // Restart with new values
+        StartChorusing();
+        
+        DebugLog("? Chorusing restarted with updated delay values");
+    }
 }

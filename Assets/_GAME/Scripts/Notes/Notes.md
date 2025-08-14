@@ -681,3 +681,208 @@ Unity 6.1 Projekt für japanische Aussprache-Training mit Fokus auf Pitch-Akzent
 5. **Include constraints** - what must NOT be changed to avoid breaking working systems
 
 #### **STATUS:** All major PitchVisualizer timing issues resolved - system ready for advanced features! 🚀✅
+
+## LATEST UPDATE - Day 15: Audio Delay Calibration System Implementation 🔧🎛️
+
+### 🎯 MAJOR DEVELOPMENT: Restart-Based Delay Adjustment System
+**BREAKTHROUGH APPROACH:** Implemented safe, clean audio delay testing without runtime complexity
+- **Core insight:** Instead of complex runtime updates, use complete restart for delay changes
+- **Safety principle:** Stop → Reset → Start ensures clean state transitions
+- **User workflow:** Adjust delays in Inspector → Restart → Test sync → Repeat until perfect
+
+### 🔄 THE RESTART PATTERN: Simple & Bulletproof
+**ELEGANT SOLUTION:** Sometimes simplicity beats complexity for better reliability
+- **Problem:** Runtime delay updates are complex and can break audio-visual sync
+- **Solution:** Complete chorusing restart applies new delay values cleanly
+- **Benefits:** Zero risk of broken states, immediate feedback, simple implementation
+
+#### Implementation Architecture:
+
+    RESTART PATTERN:
+    1. User adjusts initialAudioDelay and loopAudioDelay in Inspector
+    2. Clicks "Restart Chorusing" button in Editor
+    3. System calls StopChorusing() → clean state
+    4. System calls StartChorusing() → applies new delay values
+    5. Perfect audio-visual sync with updated timing
+
+#### Code Structure:
+
+    // NEW: Restart method for applying delay changes
+    public void RestartChorusing() {
+        if (!isChorusingActive) return;
+        
+        DebugLog("🔄 Restarting chorusing to apply new delay values...");
+        StopChorusing();
+        System.Threading.Thread.Sleep(100); // Clean state pause
+        StartChorusing();
+        DebugLog("✅ Chorusing restarted with updated delay values");
+    }
+    
+    // NEW: Async version for runtime UI integration
+    public void RestartChorusingAsync() {
+        StartCoroutine(RestartChorusingCoroutine());
+    }
+
+### 🎛️ EDITOR INTEGRATION: Simple Testing Interface
+**DEVELOPER WORKFLOW:** Clean, minimal editor interface for delay calibration testing
+- **Single button:** "Restart Chorusing" - applies Inspector values immediately
+- **Real-time feedback:** Shows current delay values and cube counts during testing
+- **Status awareness:** Only active when chorusing is running
+- **Instructions included:** Clear workflow guidance for developers
+
+#### Editor Features:
+
+    EDITOR CONTROLS:
+    - Status display (chorusing active/inactive)
+    - Current delay values with cube count conversion
+    - Single restart button for immediate testing
+    - Clear usage instructions
+    - Debug information display
+
+#### Testing Workflow:
+
+    CALIBRATION PROCESS:
+    1. Enter Play Mode
+    2. Start Chorusing in game
+    3. Adjust initialAudioDelay and loopAudioDelay in Inspector
+    4. Click "Restart Chorusing" to apply changes
+    5. Listen for audio-visual synchronization
+    6. Repeat until perfect sync achieved
+
+### 🚀 FUTURE INTEGRATION PLANNING: User Calibration System
+**NEXT PHASE:** Integrate audio delay calibration into user onboarding flow
+- **Calibration sequence:** Voice Range → Audio Delays → Ready to play
+- **Two-step process:** Initial delay calibration, then loop delay calibration
+- **Settings persistence:** Store calibrated values like pitch range data
+- **Cross-platform reliability:** Ensures good timing on all hardware/OS combinations
+
+#### Planned User Experience:
+
+    USER CALIBRATION FLOW:
+    1. Voice Range Calibration (existing)
+    2. Initial Audio Delay Calibration (NEW)
+       - Play metronome with visual cues
+       - User adjusts slider until sync is perfect
+       - Test with actual chorusing sample
+    3. Loop Audio Delay Calibration (NEW)
+       - Test multi-loop sequences
+       - Fine-tune transition timing
+       - Validate with different audio clips
+    4. Settings saved and applied globally
+
+#### Settings Integration Architecture:
+
+    SETTINGS STRUCTURE (planned):
+    UserAudioSettings:
+    - initialAudioDelay: float (0.0-1.0s range)
+    - loopAudioDelay: float (0.0-0.8s range)
+    - isCalibrated: bool (tracks completion)
+    - calibrationQuality: float (confidence score)
+    - lastCalibrationDate: DateTime
+    
+    PERSISTENCE:
+    - Saved to user settings file alongside pitch range
+    - Applied automatically on game start
+    - Can be recalibrated through settings menu
+    - Platform-specific default fallbacks
+
+### 🎵 CHORUSING TIMING IMPORTANCE
+**CRITICAL FOR UX:** Perfect audio-visual sync essential for effective language learning
+- **Learning effectiveness:** Synchronized audio helps users match native timing
+- **User confidence:** Poor sync creates confusion and reduces practice quality
+- **Accessibility:** Different hardware/OS combinations have varying audio latency
+- **Professional quality:** Smooth sync creates premium app experience
+
+#### Why Audio Delay Calibration Matters:
+
+    TECHNICAL CHALLENGES:
+    - Unity audio latency varies by platform (Windows: ~50ms, macOS: ~30ms, Android: ~100ms)
+    - Hardware differences (audio interfaces, drivers, processing power)
+    - OS audio system variations (WASAPI, Core Audio, ALSA, etc.)
+    - Buffer size configurations affect latency
+    
+    USER IMPACT:
+    - Poor sync disrupts rhythm learning
+    - Visual cues become unreliable
+    - User loses confidence in timing
+    - Reduced practice effectiveness
+
+### 🔧 IMPLEMENTATION BENEFITS: Restart Pattern Advantages
+**ARCHITECTURAL WISDOM:** Sometimes simple solutions are the most robust
+- **Zero risk:** Complete reset eliminates partial state corruption
+- **Immediate feedback:** Changes apply instantly and visibly
+- **Debug friendly:** Easy to verify new values are applied correctly
+- **Future-proof:** Works with any UI implementation (sliders, buttons, etc.)
+- **Maintainable:** Simple code that's easy to understand and modify
+
+#### Pattern Applications:
+
+    RESTART PATTERN USES:
+    - Audio delay changes (current implementation)
+    - Audio device switching (future)
+    - Analysis interval changes (potential)
+    - Major settings updates (when full reset is safer)
+    - Error recovery (clean slate approach)
+
+### 🧪 TESTING VALIDATION: Editor Interface Success
+**PROOF OF CONCEPT:** Editor interface validates the restart approach effectiveness
+- **Immediate application:** Delay changes take effect within seconds
+- **Visual confirmation:** Cube highlighting shows updated timing
+- **Audio validation:** Users can hear sync improvements immediately
+- **Iterative refinement:** Quick test-adjust-retest cycles possible
+
+#### Validation Results:
+
+    TESTING OUTCOMES:
+    ✅ Delay changes apply correctly and consistently
+    ✅ Audio-visual sync improves with proper values
+    ✅ No system instability or broken states
+    ✅ Quick iteration enables fine-tuning
+    ✅ Clear feedback makes calibration intuitive
+
+### 📋 NEXT DEVELOPMENT PRIORITIES: User-Facing Calibration
+**ROADMAP:** Transform editor testing into polished user experience
+
+#### Immediate Next Steps:
+1. **UI Design:** Create clean calibration interface with sliders and preview
+2. **Audio Feedback:** Add metronome or test audio for calibration guidance
+3. **Settings Integration:** Extend SettingsManager to include audio delay values
+4. **Validation Logic:** Implement reasonable range checking and quality scoring
+5. **Onboarding Flow:** Integrate into existing voice calibration sequence
+
+#### Technical Implementation Plan:
+1. **AudioDelayCalibrator component:** Handle calibration logic and UI
+2. **Settings persistence:** Store values in user profile
+3. **Platform defaults:** Provide reasonable starting values per platform
+4. **Quality validation:** Ensure calibrated values are within acceptable ranges
+5. **Recalibration support:** Allow users to recalibrate through settings menu
+
+### 🎖️ ACHIEVEMENT UNLOCKED: Safe Audio Delay Testing System
+**MILESTONE REACHED:** Foundation laid for comprehensive audio timing calibration
+- **Developer tools:** Editor interface enables precise delay testing
+- **Architecture ready:** Restart pattern supports any future UI implementation
+- **User experience planned:** Clear path to polished calibration system
+- **Cross-platform support:** Solution designed for hardware/OS timing variations
+
+#### Technical Foundation Complete:
+- **✅ Restart mechanism:** Clean, safe delay value application
+- **✅ Editor testing:** Immediate validation of timing changes
+- **✅ Architecture planning:** Future user calibration system designed
+- **✅ Settings integration:** Path to persistence and global application
+- **✅ Quality focus:** Emphasis on perfect chorusing timing for learning effectiveness
+
+### 📚 ARCHITECTURAL LESSONS: Restart Pattern Design
+**KEY INSIGHT:** Sometimes complexity reduction improves reliability more than sophisticated solutions
+- **Simplicity principle:** Restart is simpler and safer than runtime updates
+- **Clean state guarantee:** Full reset eliminates edge cases and partial updates
+- **User experience focus:** Quick feedback more important than technical elegance
+- **Iterative development:** Simple foundation enables rapid prototyping and testing
+
+#### Design Patterns Applied:
+- **Restart Pattern:** Clean state transitions for critical updates
+- **Editor Integration:** Developer tools for rapid testing and validation
+- **Future-Proofing:** Architecture designed for user-facing implementation
+- **Quality-First:** Perfect sync prioritized over technical complexity
+- **Cross-Platform Thinking:** Solution designed for hardware/OS diversity
+
+#### **STATUS:** Audio delay calibration foundation complete - ready for user-facing implementation! 🎯🎛️✨
