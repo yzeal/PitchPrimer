@@ -13,20 +13,20 @@ MonoBehaviour:
   m_Name: 1-1_konnichi-ha_Mai
   m_EditorClassIdentifier: 
   audioClip: {fileID: 8300000, guid: 72c1dc44a3f3adc43addb5d17cbeaebe, type: 3}
-  pitchRangeMin: 277.20023
-  pitchRangeMax: 400.32532
+  pitchRangeMin: 336.2673
+  pitchRangeMax: 361.85532
   autoCalculatePitchRange: 1
   allowManualPitchAdjustment: 1
-  kanjiText: "\u3053\u3093\u306B\u3061\u306F\u3002"
-  kanaText: "\u3053\u3093\u306B\u3061\u306F\u3002"
-  romajiText: Konnichiwa.
-  englishTranslation: Hello.
-  usageDescription: Used to greet people during the day, from around 11am to afternoon.
+  kanjiText: 
+  kanaText: 
+  romajiText: 
+  englishTranslation: 
+  usageDescription: 
   speakerName: Mai
   speakerGender: 2
   speakerNotes: 
-  recordingName: 3-1_mayo_Mai
-  description: Mayo
+  recordingName: 1-1_konnichi-ha_Mai
+  description: 
   difficultyLevel: 1
   recordingType: 2
   analysisSettings:
