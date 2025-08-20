@@ -5252,7 +5252,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b471e28baad26334aae51627cc901758, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentRecording: {fileID: 11400000, guid: c2736e2a58e9226449ee11ed35b82760, type: 2}
+  currentRecording: {fileID: 11400000, guid: 8c4c9416a32a6e541a36939bc1e322c6, type: 2}
   micAnalysis: {fileID: 1512065942}
   userVisualizer: {fileID: 453507924}
   nativeVisualizer: {fileID: 1109803071}
@@ -5544,7 +5544,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -239.38913, y: 0}
+  m_AnchoredPosition: {x: -239.38916, y: 0}
   m_SizeDelta: {x: -478.778, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1198317820

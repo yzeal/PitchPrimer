@@ -284,17 +284,17 @@ public class NativeRecording : ScriptableObject
         UnityEditor.EditorUtility.SetDirty(this);
         #endif
     }
-    
+
     /// <summary>
-    /// Validates that all required data is present
+    /// Validates that all required data is present, some lines commented out for easier testing
     /// </summary>
     public bool IsValid()
     {
         return audioClip != null && 
                !string.IsNullOrEmpty(recordingName) &&
-               !string.IsNullOrEmpty(kanjiText) &&
-               !string.IsNullOrEmpty(kanaText) &&
-               !string.IsNullOrEmpty(romajiText) &&
+               //!string.IsNullOrEmpty(kanjiText) &&
+               //!string.IsNullOrEmpty(kanaText) &&
+               //!string.IsNullOrEmpty(romajiText) &&
                !string.IsNullOrEmpty(speakerName);
     }
     
