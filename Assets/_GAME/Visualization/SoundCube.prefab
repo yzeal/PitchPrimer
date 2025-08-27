@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 30113541345083411}
   - component: {fileID: 5075327778848395421}
   - component: {fileID: 1401834235853738776}
+  - component: {fileID: 9181606395733270815}
   m_Layer: 0
   m_Name: SoundCube
   m_TagString: Untagged
@@ -86,3 +87,17 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &9181606395733270815
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4946344182149780891}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5c28c952efeb8740825fbbe032a2d77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  type: 0
+  visualObject: {fileID: 4946344182149780891}

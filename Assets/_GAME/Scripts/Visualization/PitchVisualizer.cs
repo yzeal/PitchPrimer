@@ -307,16 +307,27 @@ public class PitchVisualizer : MonoBehaviour
                 float cubeX = startX + (i * settings.cubeSpacing);
                 Vector3 position = new Vector3(cubeX, 0, 0) + settings.trackOffset;
                 cube.transform.localPosition = position;
-                
+
                 // Set standard appearance (no state-based modifications)
-                var renderer = cube.GetComponent<Renderer>();
+                /*var renderer = cube.GetComponent<Renderer>();
+
                 if (renderer != null)
                 {
                     Color cubeColor = GetCubeColor(pitchPoint);
                     cubeColor.a = 1f; // Full opacity for static display
                     renderer.material.color = cubeColor;
+                }*/
+
+                // Replaced direct modification to 3D object with SoundVisual component for more flexibility
+                var visual = cube.GetComponent<SoundVisual>();
+
+                if (visual != null)
+                {
+                    Color cubeColor = GetCubeColor(pitchPoint);
+                    cubeColor.a = 1f; // Full opacity for static display
+                    visual.SetColor(cubeColor);
                 }
-                
+
                 // Add to static display list for cleanup
                 staticDisplayCubes.Add(cube);
             }
@@ -576,7 +587,7 @@ public class PitchVisualizer : MonoBehaviour
                 renderer.material.color = new Color(1f, 1f, 0f, 0.7f);
             }
         }
-        
+
         Vector3 focalPos = new Vector3(focalPointLocalX, 0f, 0f) + settings.trackOffset;
         focalPos.y += 2f;
         focalIndicator.transform.localPosition = focalPos;
@@ -772,15 +783,25 @@ public class PitchVisualizer : MonoBehaviour
                     // Visual distinction between initial and loop delay cubes
                     if (settings.showDelayCompensationCubes)
                     {
-                        var renderer = delayCube.GetComponent<Renderer>();
+                        // Replaced direct modification to 3D object with SoundVisual component for more flexibility
+                        /*var renderer = delayCube.GetComponent<Renderer>();
                         if (renderer != null)
                         {
                             Color delayColor = (repetitionIndex == 0) ?
                                 settings.delayCompensationColor : // Initial = blue
                                 new Color(0.8f, 0.4f, 0.2f, 0.3f); // Loop = orange
                             renderer.material.color = delayColor;
+                        }*/
+
+                        var visual = delayCube.GetComponent<SoundVisual>();
+                        if (visual != null)
+                        {
+                            Color delayColor = (repetitionIndex == 0) ?
+                                settings.delayCompensationColor : // Initial = blue
+                                new Color(0.8f, 0.4f, 0.2f, 0.3f); // Loop = orange
+                            visual.SetColor(delayColor);
                         }
-                        
+
                         delayCube.name = $"{(repetitionIndex == 0 ? "InitialDelay" : "LoopDelay")}Cube_{d}";
                     }
                     
@@ -1090,9 +1111,13 @@ public class PitchVisualizer : MonoBehaviour
     
     private void SetNativeCubeStateByType(GameObject cube, int dataIndex, CubeState state)
     {
-        var renderer = cube.GetComponent<Renderer>();
-        if (renderer == null) return;
-        
+        // Replaced direct modification to 3D object with SoundVisual component for more flexibility
+        //var renderer = cube.GetComponent<Renderer>();
+        //if (renderer == null) return;
+
+        var visual = cube.GetComponent<SoundVisual>();
+        if (visual == null) return;
+
         // FIXED: Handle silence cubes safely
         Color baseColor;
         if (dataIndex >= 0 && dataIndex < originalNativePitchData.Count)
@@ -1122,7 +1147,8 @@ public class PitchVisualizer : MonoBehaviour
                 break;
         }
         
-        renderer.material.color = baseColor;
+        //renderer.material.color = baseColor;
+        visual.SetColor(baseColor);
     }
     
     private void SetNativeCubeState(GameObject cube, int cubeIndex, int currentPlaybackIndex, int globalDataIndex = -1)
@@ -1206,8 +1232,9 @@ public class PitchVisualizer : MonoBehaviour
         foreach (GameObject cube in activeCubes)
         {
             if (cube == null) continue;
-            
-            var renderer = cube.GetComponent<Renderer>();
+
+            // Replaced direct modification to 3D object with SoundVisual component for more flexibility
+            /*var renderer = cube.GetComponent<Renderer>();
             if (renderer != null)
             {
                 Color currentColor = renderer.material.color;
@@ -1217,6 +1244,23 @@ public class PitchVisualizer : MonoBehaviour
                 currentColor.a = newAlpha;
                 renderer.material.color = currentColor;
                 
+                // Check if transition is complete
+                if (Mathf.Abs(newAlpha - targetAlpha) > 0.01f)
+                {
+                    transitionComplete = false;
+                }
+            }*/
+
+            var visual = cube.GetComponent<SoundVisual>();
+            if (visual != null)
+            {
+                Color currentColor = visual.GetColor();
+                float newAlpha = Mathf.MoveTowards(currentColor.a, targetAlpha,
+                    settings.visibilityTransitionSpeed * Time.deltaTime);
+
+                currentColor.a = newAlpha;
+                visual.SetColor(currentColor);
+
                 // Check if transition is complete
                 if (Mathf.Abs(newAlpha - targetAlpha) > 0.01f)
                 {
@@ -1238,13 +1282,22 @@ public class PitchVisualizer : MonoBehaviour
     {
         if (!settings.enableVisibilityControl || isNativeTrack || cube == null)
             return;
-            
-        var renderer = cube.GetComponent<Renderer>();
+
+        // Replaced direct modification to 3D object with SoundVisual component for more flexibility
+        /*var renderer = cube.GetComponent<Renderer>();
         if (renderer != null)
         {
             Color cubeColor = renderer.material.color;
             cubeColor.a = userRecordingVisible ? settings.visibleAlpha : settings.invisibleAlpha;
             renderer.material.color = cubeColor;
+        }*/
+
+        var visual = cube.GetComponent<SoundVisual>();
+        if (visual != null)
+        {
+            Color cubeColor = visual.GetColor();
+            cubeColor.a = userRecordingVisible ? settings.visibleAlpha : settings.invisibleAlpha;
+            visual.SetColor(cubeColor);
         }
     }
     
@@ -1267,9 +1320,12 @@ public class PitchVisualizer : MonoBehaviour
         float pitchScale = CalculatePitchScale(pitchData);
         Vector3 scale = settings.cubeScale;
         scale.y = pitchScale;
-        newCube.transform.localScale = scale;
-        
+
+
         // Apply colors and visibility
+        // Replaced direct modification to 3D object with SoundVisual component for more flexibility
+
+        /*newCube.transform.localScale = scale;
         var renderer = newCube.GetComponent<Renderer>();
         if (renderer != null)
         {
@@ -1295,8 +1351,39 @@ public class PitchVisualizer : MonoBehaviour
             {
                 ApplyInitialVisibility(newCube);
             }
+        }*/
+
+
+        var visual = newCube.GetComponent<SoundVisual>();
+
+        visual.SetScale(scale);
+
+        if (visual != null)
+        {
+            Color cubeColor;
+
+            // NEW: Special handling for delay cubes (testing visualization)
+            if (index == -2 && settings.showDelayCompensationCubes)
+            {
+                cubeColor = settings.delayCompensationColor;
+
+                // Optional: Add name for easier identification in hierarchy
+                newCube.name = $"DelayCube_{Time.time:F1}";
+            }
+            else
+            {
+                cubeColor = GetCubeColor(pitchData);
+            }
+
+            visual.SetColor(cubeColor);
+
+            // Apply initial visibility for user cubes
+            if (!isPreRendered)
+            {
+                ApplyInitialVisibility(newCube);
+            }
         }
-        
+
         return newCube;
     }
     

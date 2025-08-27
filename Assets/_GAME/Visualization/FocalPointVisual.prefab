@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5863575120638340755}
+  - component: {fileID: 7091589513901919215}
   m_Layer: 0
   m_Name: FocalPointVisual
   m_TagString: Untagged
@@ -32,6 +33,20 @@ Transform:
   - {fileID: 7520052784504729668}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7091589513901919215
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5357262997562138383}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5c28c952efeb8740825fbbe032a2d77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  type: 0
+  visualObject: {fileID: 9201135620095383942}
 --- !u!1 &9201135620095383942
 GameObject:
   m_ObjectHideFlags: 0
