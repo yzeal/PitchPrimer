@@ -86,6 +86,7 @@ GameObject:
   - component: {fileID: 8917794294553562598}
   - component: {fileID: 1552209144502745057}
   - component: {fileID: 6551840500045416318}
+  - component: {fileID: 6522566498981920619}
   m_Layer: 5
   m_Name: SoundCircle_pink
   m_TagString: Untagged
@@ -151,3 +152,17 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &6522566498981920619
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7736499998437451336}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5c28c952efeb8740825fbbe032a2d77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  type: 1
+  visualObject: {fileID: 6732888546569619685}
