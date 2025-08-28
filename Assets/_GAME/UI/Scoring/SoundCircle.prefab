@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 9070512760015622965}
   - component: {fileID: 1157065339529639556}
   m_Layer: 5
-  m_Name: SoundCircle
+  m_Name: SoundCircleImage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -165,4 +165,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   type: 1
-  visualObject: {fileID: 6732888546569619685}
+  visualObject: {fileID: 7736499998437451336}
+  colorObject2D: {fileID: 6732888546569619685}

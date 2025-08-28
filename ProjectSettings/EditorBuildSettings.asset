@@ -5,7 +5,7 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/_GAME/Scenes/CalibrationScene.unity
     guid: 7a680816e3b521e4bb56404ffe8d037b
   - enabled: 1

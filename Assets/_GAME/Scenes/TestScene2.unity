@@ -2446,7 +2446,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settings:
-    cubePrefab: {fileID: 4946344182149780891, guid: d92475f428c97744381def359e0f83b9, type: 3}
+    cubePrefab: {fileID: 4946344182149780891, guid: f05aa47023df788408c57635a1107bcc, type: 3}
     cubeParent: {fileID: 453507923}
     cubeSpacing: 0.8
     cubeScale: {x: 0.8, y: 1, z: 0.1}
@@ -2473,7 +2473,7 @@ MonoBehaviour:
     minFrequency: 80
     maxFrequency: 800
     silenceCubeHeight: 0.05
-    silenceColor: {r: 0.3, g: 0.3, b: 0.3, a: 0.7}
+    silenceColor: {r: 0, g: 0, b: 0, a: 0}
     useHSVColorMapping: 1
     saturation: 0.8
     brightness: 1
@@ -5252,7 +5252,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b471e28baad26334aae51627cc901758, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentRecording: {fileID: 11400000, guid: 0ce213cf087631b4a9c839a1429e07e5, type: 2}
+  currentRecording: {fileID: 11400000, guid: c2736e2a58e9226449ee11ed35b82760, type: 2}
   micAnalysis: {fileID: 1512065942}
   userVisualizer: {fileID: 453507924}
   nativeVisualizer: {fileID: 1109803071}
@@ -5544,7 +5544,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -239.38913, y: 0}
+  m_AnchoredPosition: {x: -239.38916, y: 0}
   m_SizeDelta: {x: -478.778, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1198317820
